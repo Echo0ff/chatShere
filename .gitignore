@@ -1,0 +1,22 @@
+# 项目级别的忽略文件
+
+# 操作系统文件
+.DS_Store
+Thumbs.db
+
+# 编辑器配置 (如果不想共享)
+.vscode/settings.json
+.idea/
+
+# 临时文件
+*.tmp
+*.temp
+*.swp
+
+# 日志文件
+*.log
+
+# 环境变量文件 (全局)
+.env
+.env.local
+.env.*.local
