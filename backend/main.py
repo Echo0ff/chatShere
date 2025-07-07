@@ -22,6 +22,9 @@ from src.chatSphere.core.middleware import setup_middleware, WebSocketConnection
 from src.chatSphere.core.websocket_manager import ConnectionManager
 from src.chatSphere.services.responses import ApiResponse, ResponseCode, ResponseMessage, HTTP_STATUS_MAP, format_validation_errors
 
+# 导入路由
+from src.chatSphere.api.routes.auth import router as auth_router
+
 # 配置日志
 logging.basicConfig(
     level=getattr(logging, settings.log_level),
@@ -86,66 +89,95 @@ app = FastAPI(
     redoc_url="/redoc" if is_development() else None,
 )
 
-# 设置CORS
+# 先设置自定义中间件
+setup_middleware(app)
+
+# 最后设置CORS（这样CORS会最先执行）
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.allowed_origins,
-    allow_credentials=settings.allow_credentials,
-    allow_methods=settings.allowed_methods,
-    allow_headers=settings.allowed_headers,
+    allow_origins=[
+        "http://localhost:3000",
+        "http://localhost:5173", 
+        "http://127.0.0.1:5173",
+        "http://127.0.0.1:3000"
+    ],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
-# 设置自定义中间件
-setup_middleware(app)
+# ==================== 注册路由 ====================
+
+# 注册认证路由
+app.include_router(auth_router, prefix="/api/v1/auth", tags=["authentication"])
 
 
 # ==================== WebSocket路由 ====================
 
 @app.websocket("/ws")
-@WebSocketConnectionMiddleware.track_connection
-async def websocket_endpoint(
-    websocket: WebSocket,
-    token: str = None,
-    session: AsyncSession = Depends(get_db)
-):
+async def websocket_endpoint(websocket: WebSocket):
     """
     统一WebSocket端点 - 支持认证和消息路由
     """
-    user = None
+    logger.info("WebSocket连接尝试开始")
     
-    # 认证用户
-    if token:
-        try:
-            from src.chatSphere.core.auth import auth_manager
-            payload = await auth_manager.verify_token(token)
-            user_id = payload.get("sub")
-            if user_id:
-                user = await auth_manager.get_user_by_id(session, user_id)
-        except Exception as e:
-            logger.warning(f"WebSocket认证失败: {e}")
-            await websocket.close(code=4001, reason="认证失败")
-            return
+    # 接受WebSocket连接
+    await websocket.accept()
+    logger.info("WebSocket连接已接受")
     
-    if not user:
-        logger.warning("WebSocket连接需要认证")
-        await websocket.close(code=4001, reason="需要认证")
+    # 从查询参数中提取token
+    token = websocket.query_params.get("token")
+    logger.info(f"提取到token: {token is not None}")
+    
+    if not token:
+        logger.warning("WebSocket连接缺少token")
+        await websocket.close(code=4001, reason="缺少认证token")
         return
     
-    # 建立连接
-    await connection_manager.connect(websocket, user, session)
-    
+    # 认证用户
     try:
-        while True:
-            # 接收消息
-            data = await websocket.receive_text()
-            await connection_manager.handle_message(user.id, data, session)
+        from src.chatSphere.core.auth import auth_manager
+        from src.chatSphere.core.database import get_db
+        
+        # 创建数据库会话
+        async for session in get_db():
+            payload = await auth_manager.verify_token(token)
+            user_id = payload.get("sub")
             
-    except WebSocketDisconnect:
-        logger.info(f"用户 {user.username} 断开连接")
+            if not user_id:
+                logger.warning("Token中缺少用户ID")
+                await websocket.close(code=4001, reason="无效token")
+                return
+                
+            user = await auth_manager.get_user_by_id(session, user_id)
+            if not user:
+                logger.warning(f"用户不存在: {user_id}")
+                await websocket.close(code=4001, reason="用户不存在")
+                return
+            
+            logger.info(f"用户认证成功: {user.username}")
+            
+            # 建立连接
+            await connection_manager.connect(websocket, user, session)
+            
+            try:
+                while True:
+                    # 接收消息
+                    data = await websocket.receive_text()
+                    await connection_manager.handle_message(user.id, data, session)
+                    
+            except WebSocketDisconnect:
+                logger.info(f"用户 {user.username} 断开连接")
+            except Exception as e:
+                logger.error(f"WebSocket错误 {user.username}: {e}")
+            finally:
+                await connection_manager.disconnect(user.id, session)
+            break
+            
     except Exception as e:
-        logger.error(f"WebSocket错误 {user.username}: {e}")
-    finally:
-        await connection_manager.disconnect(user.id, session)
+        logger.error(f"WebSocket认证失败: {e}")
+        await websocket.close(code=4001, reason="认证失败")
+        return
 
 
 # ==================== REST API路由 ====================

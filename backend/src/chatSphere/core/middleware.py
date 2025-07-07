@@ -412,28 +412,12 @@ class WebSocketConnectionMiddleware:
 def setup_middleware(app):
     """设置所有中间件"""
     
-    # 错误处理中间件（最外层）
-    app.add_middleware(ErrorHandlingMiddleware)
+    # 暂时只保留必要的中间件来解决CORS问题
     
-    # 安全头部中间件
-    app.add_middleware(SecurityHeadersMiddleware)
-    
-    # 速率限制中间件
-    app.add_middleware(
-        RateLimitMiddleware,
-        requests_per_minute=settings.rate_limit_requests
-    )
-    
-    # 用户活动跟踪中间件
-    app.add_middleware(UserActivityTrackingMiddleware)
-    
-    # 缓存中间件
-    app.add_middleware(CacheMiddleware, cache_duration=300)
-    
-    # 数据库会话中间件
-    app.add_middleware(DatabaseSessionMiddleware)
-    
-    # 请求日志中间件（最内层）
+    # 请求日志中间件
     app.add_middleware(RequestLoggingMiddleware)
     
-    logger.info("所有中间件已设置完成") 
+    # 错误处理中间件
+    app.add_middleware(ErrorHandlingMiddleware)
+    
+    logger.info("核心中间件已设置完成（已简化以解决CORS问题）") 
