@@ -37,7 +37,7 @@ class Settings(BaseSettings):
     refresh_token_expire_days: int = 7
     
     # CORS配置
-    allowed_origins: List[str] = ["http://localhost:3000", "http://localhost:8080"]
+    allowed_origins: List[str] = ["http://localhost:3000", "http://localhost:8080", "http://localhost:5173"]
     allowed_methods: List[str] = ["*"]
     allowed_headers: List[str] = ["*"]
     allow_credentials: bool = True
