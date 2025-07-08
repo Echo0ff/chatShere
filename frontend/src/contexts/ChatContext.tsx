@@ -217,8 +217,8 @@ export function ChatProvider({ children }: ChatProviderProps) {
         
         const currentChat = currentChatRef.current;
         
-        // 简化消息过滤逻辑：暂时接受所有消息用于调试
-        let shouldAddMessage = true;
+        // 消息过滤逻辑：只显示当前聊天的消息
+        let shouldAddMessage = false;
         
         if (currentChat) {
           console.log('🔍 消息过滤检查:');
@@ -228,8 +228,22 @@ export function ChatProvider({ children }: ChatProviderProps) {
           console.log('- 消息chat_id:', message.data.chat_id);
           console.log('- 消息room_id:', message.data.room_id);
           
-          // 暂时允许所有消息显示，方便调试
-          shouldAddMessage = true;
+          // 根据聊天类型和ID匹配消息
+          if (currentChat.type === 'room' && message.data.chat_type === 'room') {
+            shouldAddMessage = currentChat.id === message.data.room_id || currentChat.id === message.data.chat_id;
+          } else if (currentChat.type === 'private' && message.data.chat_type === 'private') {
+            // 私聊消息匹配：当前聊天ID应该等于消息的接收者ID或发送者ID
+            shouldAddMessage = currentChat.id === message.data.to_user_id || 
+                             currentChat.id === message.data.from_user_id ||
+                             currentChat.id === message.data.chat_id;
+          } else if (currentChat.type === 'group' && message.data.chat_type === 'group') {
+            shouldAddMessage = currentChat.id === message.data.group_id || currentChat.id === message.data.chat_id;
+          }
+          
+          console.log('- 消息匹配结果:', shouldAddMessage);
+        } else {
+          // 没有选择聊天时，不显示任何消息
+          console.log('🔍 没有当前聊天，忽略消息');
         }
         
         if (shouldAddMessage) {

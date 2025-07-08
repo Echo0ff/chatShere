@@ -204,7 +204,7 @@ class ConnectionManager:
             
             logger.info(f"消息已保存到数据库: {db_message.id}")
             
-            # 创建消息对象用于广播
+            # 创建消息对象用于广播，包含房间信息
             message_obj = {
                 "id": str(db_message.id),
                 "from_user_id": user_id,
@@ -212,7 +212,12 @@ class ConnectionManager:
                 "message_type": message_type,
                 "created_at": db_message.created_at.isoformat(),
                 "is_edited": False,
-                "reply_to_id": reply_to_id
+                "reply_to_id": reply_to_id,
+                "chat_type": chat_type,
+                "chat_id": chat_id,
+                "room_id": chat_id if chat_type == "room" else None,
+                "to_user_id": chat_id if chat_type == "private" else None,
+                "group_id": chat_id if chat_type == "group" else None
             }
             
             # 构建广播消息
@@ -224,9 +229,21 @@ class ConnectionManager:
             
             logger.info(f"广播消息: {broadcast_message}")
             
-            # 广播给所有在线用户（包括发送者）
-            for target_user_id in self.active_connections:
-                await self.send_to_user(target_user_id, broadcast_message)
+            # 根据聊天类型选择性广播
+            if chat_type == "room":
+                # 房间消息：广播给所有在线用户（房间是公开的）
+                for target_user_id in self.active_connections:
+                    await self.send_to_user(target_user_id, broadcast_message)
+            elif chat_type == "private":
+                # 私聊消息：只发送给发送者和接收者
+                target_users = [user_id, chat_id]  # chat_id是接收者的用户ID
+                for target_user_id in target_users:
+                    if target_user_id in self.active_connections:
+                        await self.send_to_user(target_user_id, broadcast_message)
+            elif chat_type == "group":
+                # 群组消息：TODO - 需要查询群组成员，暂时广播给所有人
+                for target_user_id in self.active_connections:
+                    await self.send_to_user(target_user_id, broadcast_message)
                 
         except Exception as e:
             logger.error(f"保存消息到数据库失败: {e}")

@@ -325,6 +325,35 @@ const ChatArea = ({ chatId, chatType }: any) => {
   const [messageInput, setMessageInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const typingTimeoutRef = useRef<number | null>(null);
+  
+  // 添加消息容器引用
+  const messagesContainerRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  // 自动滚动到底部的函数
+  const scrollToBottom = () => {
+    if (messagesEndRef.current) {
+      messagesEndRef.current.scrollIntoView({ 
+        behavior: 'smooth',
+        block: 'end'
+      });
+    }
+  };
+
+  // 当消息列表变化时自动滚动到底部
+  useEffect(() => {
+    if (state.messages.length > 0) {
+      // 使用setTimeout确保DOM已更新
+      setTimeout(scrollToBottom, 100);
+    }
+  }, [state.messages.length]);
+
+  // 当选择新聊天时也滚动到底部
+  useEffect(() => {
+    if (chatId && state.messages.length > 0) {
+      setTimeout(scrollToBottom, 200);
+    }
+  }, [chatId]);
 
   const handleStartChat = () => {
     console.log('开始聊天按钮被点击');
@@ -473,7 +502,7 @@ const ChatArea = ({ chatId, chatType }: any) => {
       </Box>
 
       {/* 消息区域 */}
-      <Box flex="1" p={4} overflow="auto" bg="bg">
+      <Box flex="1" p={4} overflow="auto" bg="bg" ref={messagesContainerRef}>
         {state.messages.length > 0 ? (
           <VStack gap={4} align="stretch">
             {state.messages.map((message) => (
@@ -483,6 +512,7 @@ const ChatArea = ({ chatId, chatType }: any) => {
                 isOwn={message.from_user_id === authState.user?.id}
               />
             ))}
+            <div ref={messagesEndRef} />
           </VStack>
         ) : (
           <Flex align="center" justify="center" h="100%">
