@@ -101,18 +101,34 @@ export function AuthProvider({ children }: AuthProviderProps) {
   useEffect(() => {
     const checkAuth = async () => {
       const token = localStorage.getItem('access_token');
+      console.log('🔐 检查认证状态...');
+      console.log('🔐 本地存储token:', token ? '存在' : '不存在');
+      
       if (token) {
         try {
+          console.log('🔐 开始验证用户...');
           dispatch({ type: 'AUTH_START' });
+          
           const user = await apiService.getCurrentUser();
-          dispatch({ type: 'AUTH_SUCCESS', payload: user });
+          console.log('🔐 获取到用户信息:', user);
+          
+          if (user && user.id) {
+            dispatch({ type: 'AUTH_SUCCESS', payload: user });
+            console.log('✅ 用户认证成功');
+          } else {
+            console.log('❌ 用户信息无效:', user);
+            localStorage.removeItem('access_token');
+            localStorage.removeItem('refresh_token');
+            dispatch({ type: 'AUTH_FAILURE', payload: '用户信息无效' });
+          }
         } catch (error) {
-          console.error('验证用户失败:', error);
+          console.error('❌ 验证用户失败:', error);
           localStorage.removeItem('access_token');
           localStorage.removeItem('refresh_token');
           dispatch({ type: 'AUTH_FAILURE', payload: '认证已过期，请重新登录' });
         }
       } else {
+        console.log('🔐 无token，设置为未认证状态');
         dispatch({ type: 'SET_LOADING', payload: false });
       }
     };

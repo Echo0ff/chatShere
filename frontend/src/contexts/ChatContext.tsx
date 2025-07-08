@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect } from 'react';
+import React, { createContext, useContext, useReducer, useEffect, useRef, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { Message, Conversation, Room, User } from '../services/api';
 import type { WebSocketMessage } from '../services/websocket';
@@ -67,9 +67,43 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
     case 'SET_MESSAGES':
       return { ...state, messages: action.payload };
     case 'ADD_MESSAGE':
+      console.log('🔄 处理ADD_MESSAGE:', action.payload);
+      console.log('📋 当前消息列表长度:', state.messages.length);
+      
+      // 检查是否是重复消息（更严格的检测）
+      const existingMessage = state.messages.find(msg => 
+        String(msg.id) === String(action.payload.id) || 
+        (msg.content === action.payload.content && 
+         msg.from_user_id === action.payload.from_user_id &&
+         Math.abs(new Date(msg.created_at).getTime() - new Date(action.payload.created_at).getTime()) < 3000)
+      );
+      
+      if (existingMessage) {
+        console.log('⚠️ 检测到重复消息，跳过添加:', action.payload.id);
+        return state;
+      }
+      
+      // 如果是服务器返回的真实消息，移除对应的临时消息
+      let filteredMessages = state.messages;
+      if (!String(action.payload.id).startsWith('temp_')) {
+        const removedCount = filteredMessages.length;
+        filteredMessages = filteredMessages.filter(msg => 
+          !(String(msg.id).startsWith('temp_') && 
+            msg.content === action.payload.content && 
+            msg.from_user_id === action.payload.from_user_id)
+        );
+        const finalCount = filteredMessages.length;
+        if (removedCount !== finalCount) {
+          console.log('🗑️ 移除了临时消息，数量变化:', removedCount, '->', finalCount);
+        }
+      }
+      
+      const newMessages = [...filteredMessages, action.payload];
+      console.log('✅ 成功添加消息，新消息列表长度:', newMessages.length);
+      
       return {
         ...state,
-        messages: [...state.messages, action.payload],
+        messages: newMessages,
       };
     case 'UPDATE_MESSAGE':
       return {
@@ -137,53 +171,134 @@ interface ChatProviderProps {
 export function ChatProvider({ children }: ChatProviderProps) {
   const [state, dispatch] = useReducer(chatReducer, initialState);
   const { state: authState } = useAuth();
+  
+  // 使用ref保存当前聊天状态，避免useEffect依赖问题
+  const currentChatRef = useRef(state.currentChat);
+  const authUserRef = useRef(authState.user);
+  
+  // 确保ref在初始化时就有正确的值
+  currentChatRef.current = state.currentChat;
+  authUserRef.current = authState.user;
+  
+  // 更新ref当状态变化时
+  useEffect(() => {
+    currentChatRef.current = state.currentChat;
+    console.log('🔄 currentChatRef更新:', currentChatRef.current);
+  }, [state.currentChat]);
+  
+  useEffect(() => {
+    console.log('🔄 authState.user变化:', authState.user);
+    console.log('🔄 authState.isAuthenticated:', authState.isAuthenticated);
+    authUserRef.current = authState.user;
+    console.log('🔄 authUserRef更新为:', authUserRef.current);
+  }, [authState.user, authState.isAuthenticated]);
 
-  // WebSocket消息处理器
+  // 消息处理函数，使用useCallback确保获取最新状态
+  const handleMessage = useCallback((message: WebSocketMessage) => {
+    console.log('📨 ChatContext收到消息:', message);
+    
+    switch (message.type) {
+      case 'connection_established':
+        console.log('🔗 连接建立成功:', message.data);
+        break;
+        
+      case 'message':
+        console.log('💬 收到聊天消息:', message.data);
+        console.log('📍 当前聊天:', currentChatRef.current);
+        
+        const newMessage: Message = {
+          id: String(message.data.id), // 确保ID是字符串类型
+          from_user_id: message.data.from_user_id,
+          content: message.data.content,
+          message_type: message.data.message_type || 'text',
+          created_at: message.data.created_at,
+          is_edited: message.data.is_edited || false,
+        };
+        
+        const currentChat = currentChatRef.current;
+        
+        // 简化消息过滤逻辑：暂时接受所有消息用于调试
+        let shouldAddMessage = true;
+        
+        if (currentChat) {
+          console.log('🔍 消息过滤检查:');
+          console.log('- 当前聊天类型:', currentChat.type);
+          console.log('- 当前聊天ID:', currentChat.id);
+          console.log('- 消息chat_type:', message.data.chat_type);
+          console.log('- 消息chat_id:', message.data.chat_id);
+          console.log('- 消息room_id:', message.data.room_id);
+          
+          // 暂时允许所有消息显示，方便调试
+          shouldAddMessage = true;
+        }
+        
+        if (shouldAddMessage) {
+          console.log('✅ 添加消息到状态:', newMessage);
+          dispatch({ type: 'ADD_MESSAGE', payload: newMessage });
+        } else {
+          console.log('❌ 消息被过滤');
+        }
+        break;
+        
+      case 'online_users':
+        console.log('👥 更新在线用户:', message.data);
+        dispatch({ type: 'SET_ONLINE_USERS', payload: message.data });
+        break;
+        
+      case 'user_joined':
+        console.log('👋 用户加入:', message.data);
+        break;
+        
+      case 'user_left':
+        console.log('👋 用户离开:', message.data);
+        break;
+        
+      case 'typing':
+        if (message.data.is_typing) {
+          dispatch({
+            type: 'ADD_TYPING_USER',
+            payload: {
+              userId: message.data.user_id,
+              chatId: message.data.chat_id,
+              chatType: message.data.chat_type || 'room',
+            },
+          });
+        } else {
+          dispatch({
+            type: 'REMOVE_TYPING_USER',
+            payload: {
+              userId: message.data.user_id,
+              chatId: message.data.chat_id,
+              chatType: message.data.chat_type || 'room',
+            },
+          });
+        }
+        break;
+        
+      case 'error':
+        console.log('❌ WebSocket错误:', message.data.message);
+        dispatch({ type: 'SET_ERROR', payload: message.data.message });
+        break;
+        
+      default:
+        console.log('❓ 未知消息类型:', message.type);
+    }
+  }, []);
+
+  // WebSocket连接管理
   useEffect(() => {
     if (!authState.isAuthenticated) {
+      console.log('🔐 用户未登录，重置聊天状态');
       dispatch({ type: 'RESET_CHAT' });
+      websocketService.disconnect();
       return;
     }
 
-    const handleMessage = (message: WebSocketMessage) => {
-      switch (message.type) {
-        case 'message':
-          dispatch({ type: 'ADD_MESSAGE', payload: message.data });
-          break;
-        case 'user_join':
-          // 处理用户加入
-          break;
-        case 'user_leave':
-          // 处理用户离开
-          break;
-        case 'typing':
-          if (message.data.is_typing) {
-            dispatch({
-              type: 'ADD_TYPING_USER',
-              payload: {
-                userId: message.data.user_id,
-                chatId: message.data.chat_id,
-                chatType: message.data.chat_type,
-              },
-            });
-          } else {
-            dispatch({
-              type: 'REMOVE_TYPING_USER',
-              payload: {
-                userId: message.data.user_id,
-                chatId: message.data.chat_id,
-                chatType: message.data.chat_type,
-              },
-            });
-          }
-          break;
-        case 'error':
-          dispatch({ type: 'SET_ERROR', payload: message.data.message });
-          break;
-      }
-    };
+    console.log('🔗 用户已登录，连接WebSocket');
+    websocketService.connect();
 
     const handleConnection = (connected: boolean) => {
+      console.log('📡 WebSocket连接状态变化:', connected);
       dispatch({ type: 'SET_CONNECTION_STATUS', payload: connected });
     };
 
@@ -191,10 +306,11 @@ export function ChatProvider({ children }: ChatProviderProps) {
     const unsubscribeConnection = websocketService.onConnection(handleConnection);
 
     return () => {
+      console.log('🧹 清理WebSocket监听器');
       unsubscribeMessage();
       unsubscribeConnection();
     };
-  }, [authState.isAuthenticated]);
+  }, [authState.isAuthenticated, handleMessage]);
 
   // 加载对话列表
   const loadConversations = async (): Promise<void> => {
@@ -244,15 +360,58 @@ export function ChatProvider({ children }: ChatProviderProps) {
 
   // 发送消息
   const sendMessage = (content: string, messageType = 'text', replyToId?: string): void => {
-    if (!state.currentChat) return;
+    console.log('📤 sendMessage被调用');
+    console.log('📤 authState完整信息:', authState);
+    console.log('📤 authState.user:', authState.user);
+    console.log('📤 authState.isAuthenticated:', authState.isAuthenticated);
+    
+    const currentChat = currentChatRef.current;
+    // 使用fallback逻辑：优先使用ref，如果为空则使用authState.user
+    const authUser = authUserRef.current || authState.user;
+    
+    console.log('📤 currentChatRef.current:', currentChat);
+    console.log('📤 authUserRef.current:', authUserRef.current);
+    console.log('📤 使用的authUser (with fallback):', authUser);
+    
+    if (!currentChat || !authUser) {
+      console.log('❌ 无法发送消息:', { 
+        currentChat, 
+        authUser,
+        'authUserRef.current': authUserRef.current,
+        'authState.user': authState.user,
+        'authState.isAuthenticated': authState.isAuthenticated 
+      });
+      return;
+    }
 
-    websocketService.sendMessage({
-      chat_type: state.currentChat.type,
-      chat_id: state.currentChat.id,
+    const messageData = {
+      chat_type: currentChat.type,
+      chat_id: currentChat.id,
       content,
       message_type: messageType as any,
       reply_to_id: replyToId,
-    });
+    };
+    
+    console.log('📤 发送消息数据:', messageData);
+    console.log('📍 当前聊天状态:', currentChat);
+    console.log('👤 当前用户:', authUser);
+    
+    // 乐观更新：立即添加消息到本地状态
+    const optimisticMessage: Message = {
+      id: `temp_${Date.now()}_${Math.random()}`, // 临时ID
+      from_user_id: authUser.id,
+      content,
+      message_type: messageType as any,
+      created_at: new Date().toISOString(),
+      is_edited: false,
+    };
+    
+    console.log('🚀 乐观更新：立即添加消息到UI:', optimisticMessage);
+    dispatch({ type: 'ADD_MESSAGE', payload: optimisticMessage });
+    
+    // 发送到服务器
+    console.log('🌐 发送到WebSocket服务器...');
+    websocketService.sendMessage(messageData);
   };
 
   // 设置当前聊天

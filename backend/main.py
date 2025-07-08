@@ -40,6 +40,60 @@ logger = logging.getLogger(__name__)
 connection_manager = ConnectionManager()
 
 
+async def create_default_rooms_if_not_exist():
+    """创建默认房间（如果不存在）"""
+    from sqlalchemy import select
+    
+    async for session in get_db():
+        try:
+            # 检查是否已存在默认房间
+            result = await session.execute(select(Room).where(Room.id == "general"))
+            existing_room = result.scalar_one_or_none()
+            
+            if existing_room:
+                logger.info("默认房间已存在，跳过创建")
+                return
+            
+            # 创建默认房间
+            rooms_data = [
+                {
+                    "id": "general",
+                    "name": "公共大厅",
+                    "description": "欢迎来到 ChatSphere！这里是公共聊天区域。",
+                    "is_public": True,
+                    "max_members": 1000
+                },
+                {
+                    "id": "tech",
+                    "name": "技术讨论",
+                    "description": "讨论技术话题的专属房间",
+                    "is_public": True,
+                    "max_members": 500
+                },
+                {
+                    "id": "random",
+                    "name": "随便聊聊",
+                    "description": "轻松愉快的闲聊区域",
+                    "is_public": True,
+                    "max_members": 300
+                }
+            ]
+            
+            for room_data in rooms_data:
+                room = Room(**room_data)
+                session.add(room)
+                logger.info(f"创建默认房间: {room.name}")
+            
+            await session.commit()
+            logger.info("默认房间创建完成")
+            
+        except Exception as e:
+            logger.error(f"创建默认房间失败: {e}")
+            await session.rollback()
+        finally:
+            break
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期管理"""
@@ -58,6 +112,10 @@ async def lifespan(app: FastAPI):
         # 清理旧的WebSocket连接缓存
         await connection_manager.cleanup_expired_connections()
         logger.info("✅ WebSocket连接管理器已初始化")
+        
+        # 创建默认房间
+        await create_default_rooms_if_not_exist()
+        logger.info("✅ 默认房间检查完成")
         
         logger.info("🎉 所有服务启动完成！")
         
@@ -148,18 +206,18 @@ async def websocket_endpoint(websocket: WebSocket):
                 logger.warning("Token中缺少用户ID")
                 await websocket.close(code=4001, reason="无效token")
                 return
-                
+    
             user = await auth_manager.get_user_by_id(session, user_id)
             if not user:
                 logger.warning(f"用户不存在: {user_id}")
                 await websocket.close(code=4001, reason="用户不存在")
                 return
-            
+    
             logger.info(f"用户认证成功: {user.username}")
             
             # 建立连接
             await connection_manager.connect(websocket, user, session)
-            
+    
             try:
                 while True:
                     # 接收消息
@@ -227,7 +285,7 @@ async def get_current_user_info(
     current_user: User = Depends(get_current_active_user)
 ):
     """获取当前用户信息"""
-    return {
+    user_data = {
         "id": current_user.id,
         "email": current_user.email,
         "username": current_user.username,
@@ -236,6 +294,12 @@ async def get_current_user_info(
         "oauth_provider": current_user.oauth_provider.value,
         "created_at": current_user.created_at.isoformat(),
         "last_seen": current_user.last_seen.isoformat() if current_user.last_seen else None
+    }
+    
+    return {
+        "success": True,
+        "data": user_data,
+        "message": "获取用户信息成功"
     }
 
 
