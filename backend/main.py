@@ -345,6 +345,30 @@ async def get_public_rooms(
     return {"rooms": room_list}
 
 
+# 获取特定房间的在线人数
+@app.get("/api/v1/rooms/{room_id}/online-count")
+async def get_room_online_count(
+    room_id: str,
+    current_user: User = Depends(get_current_active_user)
+):
+    """获取特定房间的当前在线人数"""
+    try:
+        online_users = await cache_manager.get_room_users(room_id)
+        online_count = len(online_users)
+        
+        return {
+            "room_id": room_id,
+            "online_count": online_count,
+            "online_users": online_users
+        }
+    except Exception as e:
+        logger.error(f"获取房间在线人数失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取房间在线人数失败"
+        )
+
+
 # 消息相关路由
 @app.get("/api/v1/messages/{chat_type}/{chat_id}")
 async def get_chat_messages(
@@ -412,59 +436,17 @@ async def get_user_conversations(
     session: AsyncSession = Depends(get_db)
 ):
     """获取用户会话列表"""
-    from sqlalchemy import select, desc
-    from src.chatSphere.core.models import Conversation
+    from src.chatSphere.services.conversation_service import get_user_conversations_with_details
     
-    stmt = select(Conversation).where(
-        Conversation.user_id == current_user.id,
-        Conversation.is_archived == False
-    ).order_by(desc(Conversation.updated_at)).limit(20)
-    
-    result = await session.execute(stmt)
-    conversations = result.scalars().all()
-    
-    conv_list = []
-    for conv in conversations:
-        conv_data = {
-            "id": conv.id,
-            "chat_type": conv.chat_type.value,
-            "unread_count": conv.unread_count,
-            "is_pinned": conv.is_pinned,
-            "is_muted": conv.is_muted,
-            "updated_at": conv.updated_at.isoformat()
-        }
-        
-        # 添加聊天对象信息
-        if conv.chat_type == ChatType.PRIVATE and conv.other_user:
-            conv_data["other_user"] = {
-                "id": conv.other_user.id,
-                "username": conv.other_user.username,
-                "display_name": conv.other_user.display_name,
-                "avatar_url": conv.other_user.avatar_url
-            }
-        elif conv.chat_type == ChatType.GROUP and conv.group:
-            conv_data["group"] = {
-                "id": conv.group.id,
-                "name": conv.group.name,
-                "avatar_url": conv.group.avatar_url
-            }
-        elif conv.chat_type == ChatType.ROOM and conv.room:
-            conv_data["room"] = {
-                "id": conv.room.id,
-                "name": conv.room.name
-            }
-        
-        # 添加最后一条消息
-        if conv.last_message:
-            conv_data["last_message"] = {
-                "content": conv.last_message.content,
-                "created_at": conv.last_message.created_at.isoformat(),
-                "from_user_id": conv.last_message.from_user_id
-            }
-        
-        conv_list.append(conv_data)
-    
-    return {"conversations": conv_list}
+    try:
+        conversations = await get_user_conversations_with_details(session, current_user.id)
+        return {"conversations": conversations}
+    except Exception as e:
+        logger.error(f"获取会话列表失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="获取会话列表失败"
+        )
 
 
 # 统计信息
@@ -504,6 +486,43 @@ async def get_system_stats(
         "total_messages": total_messages,
         "server_time": datetime.utcnow().isoformat()
     }
+
+
+# 标记消息为已读
+@app.post("/api/v1/conversations/{chat_type}/{chat_id}/mark-read")
+async def mark_conversation_as_read_api(
+    chat_type: str,
+    chat_id: str,
+    current_user: User = Depends(get_current_active_user),
+    session: AsyncSession = Depends(get_db)
+):
+    """标记会话为已读"""
+    from src.chatSphere.services.conversation_service import mark_conversation_as_read
+    
+    # 验证聊天类型
+    if chat_type not in ["private", "group", "room"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="无效的聊天类型"
+        )
+    
+    try:
+        success = await mark_conversation_as_read(session, current_user.id, chat_type, chat_id)
+        
+        return {
+            "success": True,
+            "message": "会话已标记为已读" if success else "会话不存在或已是最新状态"
+        }
+            
+    except Exception as e:
+        logger.error(f"标记会话已读失败: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="标记会话已读失败"
+        )
+
+
+
 
 
 # 包含认证路由

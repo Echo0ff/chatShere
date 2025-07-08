@@ -63,11 +63,35 @@ export interface Room {
 }
 
 export interface Conversation {
-  id: string;
+  id: number;
+  chat_type: 'private' | 'group' | 'room';
+  chat_id: string;
   name: string;
-  type: 'private' | 'group' | 'room';
-  last_message?: Message;
   unread_count: number;
+  is_pinned: boolean;
+  is_muted: boolean;
+  updated_at: string;
+  last_message?: {
+    content: string;
+    created_at: string;
+    from_user_id: string;
+    message_type: string;
+  };
+  other_user?: {
+    id: string;
+    username: string;
+    display_name: string;
+    avatar_url?: string;
+  };
+  group?: {
+    id: string;
+    name: string;
+    avatar_url?: string;
+  };
+  room?: {
+    id: string;
+    name: string;
+  };
 }
 
 class ApiService {
@@ -140,6 +164,12 @@ class ApiService {
     return response.data.rooms;
   }
 
+  // 获取房间在线人数
+  async getRoomOnlineCount(roomId: string): Promise<{ room_id: string; online_count: number; online_users: User[] }> {
+    const response = await this.api.get(`/rooms/${roomId}/online-count`);
+    return response.data;
+  }
+
   // 消息相关API
   async getMessages(chatType: string, chatId: string, limit = 50, offset = 0): Promise<{messages: Message[], total: number, has_more: boolean}> {
     const response = await this.api.get(`/messages/${chatType}/${chatId}`, {
@@ -152,6 +182,11 @@ class ApiService {
   async getConversations(): Promise<Conversation[]> {
     const response = await this.api.get('/conversations');
     return response.data.conversations;
+  }
+
+  // 标记会话为已读
+  async markConversationAsRead(chatType: string, chatId: string): Promise<void> {
+    await this.api.post(`/conversations/${chatType}/${chatId}/mark-read`);
   }
 
   // 系统统计API

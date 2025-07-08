@@ -60,6 +60,13 @@ class ConnectionManager:
             "timestamp": datetime.utcnow().isoformat()
         })
         
+        # 自动将用户加入默认房间
+        try:
+            await cache_manager.add_user_to_room("general", user.id)
+            logger.info(f"用户 {user.id} 已自动加入默认房间 general")
+        except Exception as e:
+            logger.error(f"添加用户到默认房间失败: {e}")
+        
         # 广播在线用户列表给所有用户
         await self.broadcast_online_users()
     
@@ -74,6 +81,13 @@ class ConnectionManager:
         
         # 更新缓存中的在线状态
         await cache_manager.cache_user_online_status(user_id, False)
+        
+        # 从所有房间中移除用户（从默认房间开始）
+        try:
+            await cache_manager.remove_user_from_room("general", user_id)
+            logger.info(f"用户 {user_id} 已从默认房间移除")
+        except Exception as e:
+            logger.error(f"从房间移除用户失败: {e}")
         
         # 更新数据库中的最后在线时间
         if user:
@@ -204,6 +218,15 @@ class ConnectionManager:
             
             logger.info(f"消息已保存到数据库: {db_message.id}")
             
+            # 更新会话信息（未读数等）
+            try:
+                from ..services.conversation_service import update_conversation_with_new_message
+                await update_conversation_with_new_message(
+                    session, user_id, chat_type, chat_id, db_message.id
+                )
+            except Exception as e:
+                logger.error(f"更新会话信息失败: {e}")
+            
             # 创建消息对象用于广播，包含房间信息
             message_obj = {
                 "id": str(db_message.id),
@@ -230,20 +253,42 @@ class ConnectionManager:
             logger.info(f"广播消息: {broadcast_message}")
             
             # 根据聊天类型选择性广播
+            target_users_for_broadcast = []
             if chat_type == "room":
                 # 房间消息：广播给所有在线用户（房间是公开的）
-                for target_user_id in self.active_connections:
+                target_users_for_broadcast = list(self.active_connections.keys())
+                for target_user_id in target_users_for_broadcast:
                     await self.send_to_user(target_user_id, broadcast_message)
             elif chat_type == "private":
                 # 私聊消息：只发送给发送者和接收者
-                target_users = [user_id, chat_id]  # chat_id是接收者的用户ID
-                for target_user_id in target_users:
+                target_users_for_broadcast = [user_id, chat_id]  # chat_id是接收者的用户ID
+                for target_user_id in target_users_for_broadcast:
                     if target_user_id in self.active_connections:
                         await self.send_to_user(target_user_id, broadcast_message)
             elif chat_type == "group":
                 # 群组消息：TODO - 需要查询群组成员，暂时广播给所有人
-                for target_user_id in self.active_connections:
+                target_users_for_broadcast = list(self.active_connections.keys())
+                for target_user_id in target_users_for_broadcast:
                     await self.send_to_user(target_user_id, broadcast_message)
+            
+            # 广播会话更新通知，让相关用户刷新会话列表
+            conversation_update_message = {
+                "type": "conversation_updated",
+                "data": {
+                    "chat_type": chat_type,
+                    "chat_id": chat_id,
+                    "message_id": str(db_message.id),
+                    "timestamp": datetime.utcnow().isoformat()
+                },
+                "timestamp": datetime.utcnow().isoformat()
+            }
+            
+            logger.info(f"广播会话更新通知: {conversation_update_message}")
+            
+            # 向相关用户发送会话更新通知
+            for target_user_id in target_users_for_broadcast:
+                if target_user_id in self.active_connections:
+                    await self.send_to_user(target_user_id, conversation_update_message)
                 
         except Exception as e:
             logger.error(f"保存消息到数据库失败: {e}")
@@ -289,6 +334,13 @@ class ConnectionManager:
         if not user:
             return
         
+        # 将用户添加到房间缓存中
+        try:
+            await cache_manager.add_user_to_room(room_id, user_id)
+            logger.info(f"用户 {user_id} 已加入房间 {room_id}")
+        except Exception as e:
+            logger.error(f"添加用户到房间缓存失败: {e}")
+        
         # 广播用户加入消息
         join_message = {
             "type": "user_joined",
@@ -313,6 +365,13 @@ class ConnectionManager:
         user = self.user_sessions.get(user_id)
         if not user:
             return
+        
+        # 从房间缓存中移除用户
+        try:
+            await cache_manager.remove_user_from_room(room_id, user_id)
+            logger.info(f"用户 {user_id} 已离开房间 {room_id}")
+        except Exception as e:
+            logger.error(f"从房间缓存移除用户失败: {e}")
         
         # 广播用户离开消息
         leave_message = {

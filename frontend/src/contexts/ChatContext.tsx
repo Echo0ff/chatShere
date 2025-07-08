@@ -38,6 +38,7 @@ export type ChatAction =
   | { type: 'ADD_TYPING_USER'; payload: { userId: string; chatId: string; chatType: string } }
   | { type: 'REMOVE_TYPING_USER'; payload: { userId: string; chatId: string; chatType: string } }
   | { type: 'CLEAR_TYPING_USERS' }
+  | { type: 'MARK_CONVERSATION_READ'; payload: { chatType: string; chatId: string } }
   | { type: 'RESET_CHAT' };
 
 // 初始状态
@@ -138,6 +139,16 @@ export function chatReducer(state: ChatState, action: ChatAction): ChatState {
       };
     case 'CLEAR_TYPING_USERS':
       return { ...state, typingUsers: [] };
+    case 'MARK_CONVERSATION_READ':
+      return {
+        ...state,
+        conversations: state.conversations.map(conv => {
+          if (conv.chat_type === action.payload.chatType && conv.chat_id === action.payload.chatId) {
+            return { ...conv, unread_count: 0 };
+          }
+          return conv;
+        }),
+      };
     case 'RESET_CHAT':
       return initialState;
     default:
@@ -157,6 +168,8 @@ interface ChatContextType {
   sendTyping: (isTyping: boolean) => void;
   joinRoom: (roomId: string) => void;
   leaveRoom: (roomId: string) => void;
+  markConversationAsRead: (chatType: string, chatId: string) => Promise<void>;
+  getRoomOnlineCount: (roomId: string) => Promise<number>;
   clearError: () => void;
 }
 
@@ -175,6 +188,9 @@ export function ChatProvider({ children }: ChatProviderProps) {
   // 使用ref保存当前聊天状态，避免useEffect依赖问题
   const currentChatRef = useRef(state.currentChat);
   const authUserRef = useRef(authState.user);
+  const loadConversationsRef = useRef<(() => Promise<void>) | null>(null);
+  const markConversationAsReadRef = useRef<((chatType: string, chatId: string) => Promise<void>) | null>(null);
+  const currentRoomRef = useRef<string | null>(null); // 跟踪当前房间
   
   // 确保ref在初始化时就有正确的值
   currentChatRef.current = state.currentChat;
@@ -184,6 +200,13 @@ export function ChatProvider({ children }: ChatProviderProps) {
   useEffect(() => {
     currentChatRef.current = state.currentChat;
     console.log('🔄 currentChatRef更新:', currentChatRef.current);
+    
+    // 如果当前聊天是房间，更新currentRoomRef
+    if (state.currentChat?.type === 'room') {
+      currentRoomRef.current = state.currentChat.id;
+    } else {
+      currentRoomRef.current = null;
+    }
   }, [state.currentChat]);
   
   useEffect(() => {
@@ -249,9 +272,28 @@ export function ChatProvider({ children }: ChatProviderProps) {
         if (shouldAddMessage) {
           console.log('✅ 添加消息到状态:', newMessage);
           dispatch({ type: 'ADD_MESSAGE', payload: newMessage });
+          
+          // 如果消息显示在当前聊天中，立即标记为已读
+          // 这样可以防止用户在当前聊天窗口时还显示未读数
+          console.log('📖 消息显示在当前聊天中，自动标记为已读');
+          const chat_type = message.data.chat_type;
+          const chat_id = message.data.chat_type === 'room' ? 
+            (message.data.room_id || message.data.chat_id) :
+            message.data.chat_id;
+          
+          if (markConversationAsReadRef.current && chat_type && chat_id) {
+            markConversationAsReadRef.current(chat_type, chat_id).catch(err => {
+              console.error('自动标记已读失败:', err);
+            });
+          }
         } else {
           console.log('❌ 消息被过滤');
         }
+        
+        // 无论消息是否显示在当前聊天中，都要更新会话列表
+        // 这样可以实时更新未读消息数和最后消息时间
+        console.log('🔄 重新加载会话列表以更新未读数');
+        loadConversationsRef.current?.();
         break;
         
       case 'online_users':
@@ -261,10 +303,14 @@ export function ChatProvider({ children }: ChatProviderProps) {
         
       case 'user_joined':
         console.log('👋 用户加入:', message.data);
+        // 重新加载会话列表以更新房间在线人数等信息
+        loadConversationsRef.current?.();
         break;
         
       case 'user_left':
         console.log('👋 用户离开:', message.data);
+        // 重新加载会话列表以更新房间在线人数等信息
+        loadConversationsRef.current?.();
         break;
         
       case 'typing':
@@ -289,6 +335,13 @@ export function ChatProvider({ children }: ChatProviderProps) {
         }
         break;
         
+      case 'conversation_updated':
+        console.log('🔄 收到会话更新通知:', message.data);
+        // 重新加载会话列表以更新未读数和最后消息时间
+        console.log('🔄 重新加载会话列表（来自会话更新通知）');
+        loadConversationsRef.current?.();
+        break;
+        
       case 'error':
         console.log('❌ WebSocket错误:', message.data.message);
         dispatch({ type: 'SET_ERROR', payload: message.data.message });
@@ -304,6 +357,7 @@ export function ChatProvider({ children }: ChatProviderProps) {
     if (!authState.isAuthenticated) {
       console.log('🔐 用户未登录，重置聊天状态');
       dispatch({ type: 'RESET_CHAT' });
+      currentRoomRef.current = null; // 清理房间状态
       websocketService.disconnect();
       return;
     }
@@ -338,6 +392,25 @@ export function ChatProvider({ children }: ChatProviderProps) {
       dispatch({ type: 'SET_LOADING', payload: false });
     }
   };
+  
+  // 标记会话为已读
+  const markConversationAsRead = async (chatType: string, chatId: string): Promise<void> => {
+    try {
+      await apiService.markConversationAsRead(chatType, chatId);
+      
+      // 更新本地状态，将对应会话的未读数清零
+      dispatch({
+        type: 'MARK_CONVERSATION_READ',
+        payload: { chatType, chatId }
+      });
+    } catch (error: any) {
+      console.error('标记会话已读失败:', error);
+    }
+  };
+  
+  // 设置ref以便在回调中使用
+  loadConversationsRef.current = loadConversations;
+  markConversationAsReadRef.current = markConversationAsRead;
 
   // 加载消息
   const loadMessages = async (chatType: string, chatId: string): Promise<void> => {
@@ -430,6 +503,27 @@ export function ChatProvider({ children }: ChatProviderProps) {
 
   // 设置当前聊天
   const setCurrentChat = (chat: { id: string; type: 'private' | 'group' | 'room'; name: string } | null): void => {
+    const previousRoom = currentRoomRef.current;
+    
+    // 处理房间切换逻辑
+    if (chat?.type === 'room') {
+      // 如果切换到新房间，先离开旧房间
+      if (previousRoom && previousRoom !== chat.id) {
+        console.log(`🚪 离开房间: ${previousRoom}`);
+        websocketService.leaveRoom(previousRoom);
+      }
+      
+      // 加入新房间
+      console.log(`🚪 加入房间: ${chat.id}`);
+      websocketService.joinRoom(chat.id);
+      currentRoomRef.current = chat.id;
+    } else if (previousRoom) {
+      // 如果从房间切换到非房间（如私聊），离开当前房间
+      console.log(`🚪 离开房间: ${previousRoom}`);
+      websocketService.leaveRoom(previousRoom);
+      currentRoomRef.current = null;
+    }
+    
     dispatch({ type: 'SET_CURRENT_CHAT', payload: chat });
     if (chat) {
       loadMessages(chat.type, chat.id);
@@ -442,14 +536,31 @@ export function ChatProvider({ children }: ChatProviderProps) {
     websocketService.sendTyping(state.currentChat.type, state.currentChat.id, isTyping);
   };
 
-  // 加入房间
+  // 加入房间（手动加入，通常由setCurrentChat自动处理）
   const joinRoom = (roomId: string): void => {
+    console.log(`🚪 手动加入房间: ${roomId}`);
     websocketService.joinRoom(roomId);
+    currentRoomRef.current = roomId;
   };
 
-  // 离开房间
+  // 离开房间（手动离开，通常由setCurrentChat自动处理）
   const leaveRoom = (roomId: string): void => {
+    console.log(`🚪 手动离开房间: ${roomId}`);
     websocketService.leaveRoom(roomId);
+    if (currentRoomRef.current === roomId) {
+      currentRoomRef.current = null;
+    }
+  };
+
+  // 获取房间在线人数
+  const getRoomOnlineCount = async (roomId: string): Promise<number> => {
+    try {
+      const result = await apiService.getRoomOnlineCount(roomId);
+      return result.online_count;
+    } catch (error: any) {
+      console.error('获取房间在线人数失败:', error);
+      return 0;
+    }
   };
 
   // 清除错误
@@ -468,6 +579,8 @@ export function ChatProvider({ children }: ChatProviderProps) {
     sendTyping,
     joinRoom,
     leaveRoom,
+    markConversationAsRead,
+    getRoomOnlineCount,
     clearError,
   };
 

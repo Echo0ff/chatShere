@@ -20,8 +20,9 @@ import { ColorModeButton } from '../components/ui/color-mode';
 
 // 对话侧边栏组件
 const ConversationSidebar = ({ onChatSelect, selectedChatId, selectedChatType }: any) => {
-  const { state, loadConversations, loadRooms, loadOnlineUsers } = useChat();
+  const { state, loadConversations, loadRooms, loadOnlineUsers, getRoomOnlineCount } = useChat();
   const { state: authState } = useAuth();
+  const [roomOnlineCounts, setRoomOnlineCounts] = useState<Record<string, number>>({});
 
   useEffect(() => {
     // 加载聊天数据
@@ -29,6 +30,40 @@ const ConversationSidebar = ({ onChatSelect, selectedChatId, selectedChatType }:
     loadRooms();
     loadOnlineUsers();
   }, []);
+  
+  // 更新房间在线人数
+  const updateRoomOnlineCounts = async () => {
+    const counts: Record<string, number> = {};
+    
+    for (const room of state.rooms) {
+      try {
+        const count = await getRoomOnlineCount(room.id);
+        counts[room.id] = count;
+      } catch (error) {
+        console.error(`获取房间 ${room.id} 在线人数失败:`, error);
+        counts[room.id] = room.online_count; // 使用备用值
+      }
+    }
+    
+    setRoomOnlineCounts(counts);
+  };
+  
+  // 定期更新房间在线人数
+  useEffect(() => {
+    if (state.rooms.length > 0) {
+      updateRoomOnlineCounts();
+      
+      const interval = setInterval(updateRoomOnlineCounts, 15000); // 每15秒更新一次
+      return () => clearInterval(interval);
+    }
+  }, [state.rooms.length]);
+  
+  // 当会话列表更新时，也更新房间在线人数
+  useEffect(() => {
+    if (state.conversations.length > 0) {
+      updateRoomOnlineCounts();
+    }
+  }, [state.conversations.length]);
 
   // 过滤掉当前用户自己
   const otherOnlineUsers = state.onlineUsers.filter(user => user.id !== authState.user?.id);
@@ -125,36 +160,66 @@ const ConversationSidebar = ({ onChatSelect, selectedChatId, selectedChatType }:
           </Text>
           {state.rooms.length > 0 ? (
             <VStack gap={2} align="stretch">
-              {state.rooms.slice(0, 5).map((room) => (
-                <HStack
-                  key={room.id}
-                  p={2}
-                  borderRadius="md"
-                  cursor="pointer"
-                  _hover={{ bg: 'bg.muted' }}
-                  onClick={() => onChatSelect(room.id, 'room', room.name)}
-                  bg={selectedChatId === room.id && selectedChatType === 'room' ? 'blue.100' : 'transparent'}
-                >
-                  <Box
-                    w={6}
-                    h={6}
-                    bg="green.500"
+              {state.rooms.slice(0, 5).map((room) => {
+                // 从会话列表中找到该房间的未读数
+                const roomConversation = state.conversations.find(
+                  conv => conv.chat_type === 'room' && conv.chat_id === room.id
+                );
+                const unreadCount = roomConversation?.unread_count || 0;
+                
+                // 使用实时在线人数，如果没有则使用房间的初始值
+                const onlineCount = roomOnlineCounts[room.id] ?? room.online_count;
+                
+                return (
+                  <HStack
+                    key={room.id}
+                    p={2}
                     borderRadius="md"
-                    display="flex"
-                    alignItems="center"
-                    justifyContent="center"
-                    color="white"
-                    fontSize="xs"
-                    fontWeight="bold"
+                    cursor="pointer"
+                    _hover={{ bg: 'bg.muted' }}
+                    onClick={() => onChatSelect(room.id, 'room', room.name)}
+                    bg={selectedChatId === room.id && selectedChatType === 'room' ? 'blue.100' : 'transparent'}
+                    align="start"
+                    gap={3}
                   >
-                    #
-                  </Box>
-                  <VStack align="start" gap={0} flex="1">
-                    <Text fontSize="sm" fontWeight="medium" color="fg">{room.name}</Text>
-                    <Text fontSize="xs" color="blue.500">{room.online_count} 人在线</Text>
-                  </VStack>
-                </HStack>
-              ))}
+                    <Box
+                      w={6}
+                      h={6}
+                      bg="green.500"
+                      borderRadius="md"
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
+                      color="white"
+                      fontSize="xs"
+                      fontWeight="bold"
+                    >
+                      #
+                    </Box>
+                    <VStack align="start" gap={0} flex="1" overflow="hidden">
+                      <Text fontSize="sm" fontWeight="medium" color="fg" truncate>{room.name}</Text>
+                      <Text fontSize="xs" color="blue.500">{onlineCount} 人在线</Text>
+                    </VStack>
+                    {unreadCount > 0 && (
+                      <Box
+                        bg="red.500"
+                        color="white"
+                        borderRadius="full"
+                        minW={5}
+                        h={5}
+                        display="flex"
+                        alignItems="center"
+                        justifyContent="center"
+                        fontSize="xs"
+                        fontWeight="bold"
+                        px={unreadCount > 99 ? 1 : 0}
+                      >
+                        {unreadCount > 99 ? '99+' : unreadCount}
+                      </Box>
+                    )}
+                  </HStack>
+                );
+              })}
             </VStack>
           ) : (
             <Text fontSize="sm" color="fg.subtle">暂无房间</Text>
@@ -169,21 +234,44 @@ const ConversationSidebar = ({ onChatSelect, selectedChatId, selectedChatType }:
           {state.conversations.length > 0 ? (
             <VStack gap={2} align="stretch">
               {state.conversations.slice(0, 5).map((conversation) => (
-                <Box
+                <HStack
                   key={conversation.id}
                   p={2}
                   borderRadius="md"
                   cursor="pointer"
                   _hover={{ bg: 'bg.muted' }}
-                  onClick={() => onChatSelect(conversation.id, conversation.type)}
+                  onClick={() => onChatSelect(conversation.chat_id, conversation.chat_type)}
+                  align="start"
+                  gap={3}
                 >
-                  <Text fontSize="sm" fontWeight="medium" color="fg">{conversation.name}</Text>
-                  {conversation.last_message && (
-                    <Text fontSize="xs" color="fg.subtle" overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap">
-                      {conversation.last_message.content}
+                  <VStack align="start" gap={0} flex="1" overflow="hidden">
+                    <Text fontSize="sm" fontWeight="medium" color="fg" truncate>
+                      {conversation.name}
                     </Text>
+                    {conversation.last_message && (
+                      <Text fontSize="xs" color="fg.subtle" overflow="hidden" textOverflow="ellipsis" whiteSpace="nowrap">
+                        {conversation.last_message.content}
+                      </Text>
+                    )}
+                  </VStack>
+                  {conversation.unread_count > 0 && (
+                    <Box
+                      bg="red.500"
+                      color="white"
+                      borderRadius="full"
+                      minW={5}
+                      h={5}
+                      display="flex"
+                      alignItems="center"
+                      justifyContent="center"
+                      fontSize="xs"
+                      fontWeight="bold"
+                      px={conversation.unread_count > 99 ? 1 : 0}
+                    >
+                      {conversation.unread_count > 99 ? '99+' : conversation.unread_count}
+                    </Box>
                   )}
-                </Box>
+                </HStack>
               ))}
             </VStack>
           ) : (
@@ -320,10 +408,11 @@ const MessageBubble = ({ message, isOwn }: { message: any; isOwn: boolean }) => 
 };
 
 const ChatArea = ({ chatId, chatType }: any) => {
-  const { state, setCurrentChat, loadMessages, sendMessage, sendTyping } = useChat();
+  const { state, setCurrentChat, loadMessages, sendMessage, sendTyping, getRoomOnlineCount } = useChat();
   const { state: authState } = useAuth();
   const [messageInput, setMessageInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
+  const [currentRoomOnlineCount, setCurrentRoomOnlineCount] = useState<number>(0);
   const typingTimeoutRef = useRef<number | null>(null);
   
   // 添加消息容器引用
@@ -355,32 +444,56 @@ const ChatArea = ({ chatId, chatType }: any) => {
     }
   }, [chatId]);
 
+  // 当进入房间时获取在线人数
+  useEffect(() => {
+    if (chatId && chatType === 'room') {
+      const fetchRoomOnlineCount = async () => {
+        try {
+          const count = await getRoomOnlineCount(chatId);
+          setCurrentRoomOnlineCount(count);
+        } catch (error) {
+          console.error('获取房间在线人数失败:', error);
+        }
+      };
+      
+      fetchRoomOnlineCount();
+      
+      // 每30秒更新一次在线人数
+      const interval = setInterval(fetchRoomOnlineCount, 30000);
+      
+      return () => clearInterval(interval);
+    } else {
+      setCurrentRoomOnlineCount(0);
+    }
+  }, [chatId, chatType, getRoomOnlineCount]);
+
   const handleStartChat = () => {
     console.log('开始聊天按钮被点击');
     
-    // 检查是否有可用的房间
-    if (state.rooms.length > 0) {
-      // 选择第一个房间作为默认房间
-      const defaultRoom = state.rooms[0];
+    // 直接跳转到大厅聊天室
+    const hallRoom = state.rooms.find(room => room.name === '大厅') || 
+                     state.rooms.find(room => room.id === 'general') ||
+                     state.rooms[0]; // 如果都没找到，选择第一个房间
+    
+    if (hallRoom) {
       setCurrentChat({
-        id: defaultRoom.id,
+        id: hallRoom.id,
         type: 'room',
-        name: defaultRoom.name
+        name: hallRoom.name
       });
-      loadMessages('room', defaultRoom.id);
-      console.log('已进入房间:', defaultRoom.name);
-          } else {
-        // 如果没有房间，创建默认大厅
-        const defaultRoomId = 'general';
-        setCurrentChat({
-          id: defaultRoomId,
-          type: 'room',
-          name: '公共大厅'
-        });
-        // 尝试加载消息（可能为空）
-        loadMessages('room', defaultRoomId);
-        console.log('已创建并进入默认房间: 公共大厅');
-      }
+      loadMessages('room', hallRoom.id);
+      console.log('已进入大厅:', hallRoom.name);
+    } else {
+      // 如果没有任何房间，创建默认大厅
+      const defaultRoomId = 'general';
+      setCurrentChat({
+        id: defaultRoomId,
+        type: 'room',
+        name: '大厅'
+      });
+      loadMessages('room', defaultRoomId);
+      console.log('已创建并进入默认大厅');
+    }
   };
 
   const handleSendMessage = () => {
@@ -496,9 +609,34 @@ const ChatArea = ({ chatId, chatType }: any) => {
         borderColor="border"
         bg="bg.subtle"
       >
-        <Heading size="md" color="fg">
-          {state.currentChat?.name || '聊天'}
-        </Heading>
+        <HStack justify="space-between" align="center" w="full">
+          <VStack align="start" gap={1}>
+            <Heading size="md" color="fg">
+              {state.currentChat?.name || '聊天'}
+            </Heading>
+            {chatType === 'room' && currentRoomOnlineCount > 0 && (
+              <HStack gap={1}>
+                <Box w={2} h={2} bg="green.400" borderRadius="full" />
+                <Text fontSize="sm" color="green.600">
+                  {currentRoomOnlineCount} 人在线
+                </Text>
+              </HStack>
+            )}
+          </VStack>
+          
+          {/* 连接状态 */}
+          <HStack gap={2}>
+            <Box
+              w={2}
+              h={2}
+              bg={state.isConnected ? 'green.400' : 'red.400'}
+              borderRadius="full"
+            />
+            <Text fontSize="sm" color={state.isConnected ? 'green.600' : 'red.600'}>
+              {state.isConnected ? '已连接' : '未连接'}
+            </Text>
+          </HStack>
+        </HStack>
       </Box>
 
       {/* 消息区域 */}
@@ -602,7 +740,7 @@ const ChatArea = ({ chatId, chatType }: any) => {
 
 export default function ChatPage() {
   const { state: authState } = useAuth();
-  const { state: chatState, setCurrentChat, loadMessages } = useChat();
+  const { state: chatState, setCurrentChat, loadMessages, markConversationAsRead } = useChat();
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [selectedChatType, setSelectedChatType] = useState<'private' | 'group' | 'room'>('private');
   const [showSidebar, setShowSidebar] = useState(false);
@@ -637,7 +775,9 @@ export default function ChatPage() {
       name: displayName || chatId
     });
     
+    // 加载消息并标记会话为已读
     loadMessages(chatType, chatId);
+    markConversationAsRead(chatType, chatId);
     
     // 在移动端选择聊天后关闭侧边栏
     if (isMobile) {

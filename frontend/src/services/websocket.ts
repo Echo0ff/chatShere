@@ -2,7 +2,7 @@ import type { Message, User } from './api';
 
 // WebSocket消息类型
 export interface WebSocketMessage {
-  type: 'connection_established' | 'message' | 'online_users' | 'user_joined' | 'user_left' | 'typing' | 'error' | 'pong';
+  type: 'connection_established' | 'message' | 'online_users' | 'user_joined' | 'user_left' | 'typing' | 'error' | 'pong' | 'conversation_updated';
   data: any;
   timestamp: string;
 }

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   VStack,
@@ -6,38 +6,103 @@ import {
   Text,
   Button,
   Input,
+  Badge,
 } from '@chakra-ui/react';
 import { useAuth } from '../contexts/AuthContext';
 import { useChat } from '../contexts/ChatContext';
 
+// 未读消息数徽章组件
+const UnreadBadge = ({ count }: { count: number }) => {
+  if (count === 0) return null;
+  
+  return (
+    <Badge
+      colorScheme="red"
+      variant="solid"
+      borderRadius="full"
+      minW={5}
+      h={5}
+      display="flex"
+      alignItems="center"
+      justifyContent="center"
+      fontSize="xs"
+      fontWeight="bold"
+    >
+      {count > 99 ? '99+' : count}
+    </Badge>
+  );
+};
+
 export function ConversationSidebar() {
   const { state: authState, logout } = useAuth();
-  const { state: chatState, setCurrentChat, joinRoom } = useChat();
+  const { state: chatState, setCurrentChat, joinRoom, markConversationAsRead, loadConversations } = useChat();
   const [searchTerm, setSearchTerm] = useState('');
   const [activeTab, setActiveTab] = useState<'conversations' | 'rooms' | 'users'>('conversations');
+
+  // 计算总未读数
+  const totalUnreadCount = chatState.conversations.reduce((total, conv) => total + conv.unread_count, 0);
+
+  // 根据会话列表为房间和用户添加未读数
+  const roomsWithUnread = chatState.rooms.map(room => {
+    const roomConversation = chatState.conversations.find(conv => 
+      conv.chat_type === 'room' && conv.chat_id === room.id
+    );
+    return {
+      ...room,
+      unread_count: roomConversation?.unread_count || 0
+    };
+  });
+
+  const usersWithUnread = chatState.onlineUsers.map(user => {
+    const userConversation = chatState.conversations.find(conv => 
+      conv.chat_type === 'private' && conv.chat_id === user.id
+    );
+    return {
+      ...user,
+      unread_count: userConversation?.unread_count || 0
+    };
+  });
+
+  // 加载会话列表
+  useEffect(() => {
+    if (authState.isAuthenticated) {
+      loadConversations();
+    }
+  }, [authState.isAuthenticated, loadConversations]);
 
   const handleLogout = async () => {
     await logout();
   };
 
-  const handleConversationClick = (conversation: any) => {
+  const handleConversationClick = async (conversation: any) => {
+    // 设置当前聊天
     setCurrentChat({
-      id: conversation.id,
-      type: conversation.type,
+      id: conversation.chat_id,
+      type: conversation.chat_type,
       name: conversation.name,
     });
+    
+    // 标记会话为已读
+    if (conversation.unread_count > 0) {
+      await markConversationAsRead(conversation.chat_type, conversation.chat_id);
+    }
   };
 
-  const handleRoomClick = (room: any) => {
+  const handleRoomClick = async (room: any) => {
     joinRoom(room.id);
     setCurrentChat({
       id: room.id,
       type: 'room',
       name: room.name,
     });
+    
+    // 标记房间为已读
+    if (room.unread_count > 0) {
+      await markConversationAsRead('room', room.id);
+    }
   };
 
-  const handleUserClick = (user: any) => {
+  const handleUserClick = async (user: any) => {
     if (user.id === authState.user?.id) return; // 不能和自己聊天
     
     setCurrentChat({
@@ -45,17 +110,22 @@ export function ConversationSidebar() {
       type: 'private',
       name: user.display_name || user.username,
     });
+    
+    // 标记私聊为已读
+    if (user.unread_count > 0) {
+      await markConversationAsRead('private', user.id);
+    }
   };
 
   const filteredConversations = chatState.conversations.filter(conv =>
-    conv.name.toLowerCase().includes(searchTerm.toLowerCase())
+    conv.name && conv.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredRooms = chatState.rooms.filter(room =>
+  const filteredRooms = roomsWithUnread.filter(room =>
     room.name.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const filteredUsers = chatState.onlineUsers.filter(user =>
+  const filteredUsers = usersWithUnread.filter(user =>
     user.id !== authState.user?.id &&
     (user.display_name || user.username).toLowerCase().includes(searchTerm.toLowerCase())
   );
@@ -113,7 +183,10 @@ export function ConversationSidebar() {
             variant={activeTab === 'conversations' ? 'solid' : 'ghost'}
             onClick={() => setActiveTab('conversations')}
           >
-            对话
+            <HStack gap={1}>
+              <Text>对话</Text>
+              {totalUnreadCount > 0 && <UnreadBadge count={totalUnreadCount} />}
+            </HStack>
           </Button>
           <Button
             size="sm"
@@ -149,23 +222,42 @@ export function ConversationSidebar() {
                   p={3}
                   cursor="pointer"
                   bg={
-                    chatState.currentChat?.id === conversation.id
+                    chatState.currentChat?.id === conversation.chat_id
                       ? 'blue.50'
                       : 'transparent'
                   }
                   _hover={{ bg: 'gray.50' }}
                   onClick={() => handleConversationClick(conversation)}
                 >
-                  <VStack align="start" gap={1}>
-                    <Text fontWeight="medium" fontSize="sm">
-                      {conversation.name}
-                    </Text>
-                    {conversation.last_message && (
-                      <Text fontSize="xs" color="gray.500">
-                        {conversation.last_message.content}
+                  <HStack justify="space-between" align="start" w="full">
+                    <VStack align="start" gap={1} flex="1">
+                      <Text fontWeight="medium" fontSize="sm">
+                        {conversation.name}
                       </Text>
-                    )}
-                  </VStack>
+                      {conversation.last_message && (
+                        <Text 
+                          fontSize="xs" 
+                          color="gray.500"
+                          overflow="hidden"
+                          textOverflow="ellipsis"
+                          whiteSpace="nowrap"
+                        >
+                          {conversation.last_message.content}
+                        </Text>
+                      )}
+                    </VStack>
+                    <VStack align="end" gap={1}>
+                      <UnreadBadge count={conversation.unread_count} />
+                      {conversation.last_message && (
+                        <Text fontSize="xs" color="gray.400">
+                          {new Date(conversation.last_message.created_at).toLocaleTimeString([], { 
+                            hour: '2-digit', 
+                            minute: '2-digit' 
+                          })}
+                        </Text>
+                      )}
+                    </VStack>
+                  </HStack>
                 </Box>
               ))
             )}
@@ -194,21 +286,30 @@ export function ConversationSidebar() {
                   _hover={{ bg: 'gray.50' }}
                   onClick={() => handleRoomClick(room)}
                 >
-                  <VStack align="start" gap={1}>
-                    <HStack justify="space-between" w="full">
+                  <HStack justify="space-between" align="start" w="full">
+                    <VStack align="start" gap={1} flex="1">
                       <Text fontWeight="medium" fontSize="sm">
                         {room.name}
                       </Text>
+                      {room.description && (
+                        <Text 
+                          fontSize="xs" 
+                          color="gray.500"
+                          overflow="hidden"
+                          textOverflow="ellipsis"
+                          whiteSpace="nowrap"
+                        >
+                          {room.description}
+                        </Text>
+                      )}
                       <Text fontSize="xs" color="green.500">
-                        {room.online_count} 人
+                        {room.online_count} 人在线
                       </Text>
-                    </HStack>
-                    {room.description && (
-                      <Text fontSize="xs" color="gray.500">
-                        {room.description}
-                      </Text>
-                    )}
-                  </VStack>
+                    </VStack>
+                    <VStack align="end" gap={1}>
+                      <UnreadBadge count={room.unread_count} />
+                    </VStack>
+                  </HStack>
                 </Box>
               ))
             )}
@@ -232,15 +333,20 @@ export function ConversationSidebar() {
                   _hover={{ bg: 'gray.50' }}
                   onClick={() => handleUserClick(user)}
                 >
-                  <VStack align="start" gap={1}>
-                    <Text fontWeight="medium" fontSize="sm">
-                      {user.display_name || user.username}
-                    </Text>
-                    <HStack gap={1}>
-                      <Box w={2} h={2} bg="green.400" borderRadius="full" />
-                      <Text fontSize="xs" color="gray.500">在线</Text>
-                    </HStack>
-                  </VStack>
+                  <HStack justify="space-between" align="start" w="full">
+                    <VStack align="start" gap={1} flex="1">
+                      <Text fontWeight="medium" fontSize="sm">
+                        {user.display_name || user.username}
+                      </Text>
+                      <HStack gap={1}>
+                        <Box w={2} h={2} bg="green.400" borderRadius="full" />
+                        <Text fontSize="xs" color="gray.500">在线</Text>
+                      </HStack>
+                    </VStack>
+                    <VStack align="end" gap={1}>
+                      <UnreadBadge count={user.unread_count} />
+                    </VStack>
+                  </HStack>
                 </Box>
               ))
             )}

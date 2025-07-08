@@ -33,6 +33,8 @@ ChatSphere 是一个现代化的实时聊天系统，采用前后端分离架构
 👀 **实时状态** - 在线用户、打字状态实时更新  
 🚀 **高性能** - Redis缓存 + PostgreSQL持久化  
 🔄 **消息过滤** - 智能的房间消息分离  
+📬 **未读消息数** - 实时显示每个聊天的未读消息数量  
+🕒 **最近聊天** - 智能排序显示最近的聊天记录  
 
 ### 🛠️ 技术架构
 
@@ -159,7 +161,8 @@ chatSphere/
 ### 聊天接口
 - `GET /chat/rooms` - 获取房间列表
 - `GET /chat/messages/{chat_type}/{chat_id}` - 获取聊天消息
-- `GET /chat/conversations` - 获取对话列表
+- `GET /chat/conversations` - 获取对话列表 (含未读数、最近排序)
+- `POST /chat/conversations/{chat_type}/{chat_id}/mark-read` - 标记会话为已读
 - `GET /chat/online-users` - 获取在线用户
 
 ### WebSocket
@@ -181,6 +184,9 @@ chatSphere/
 - ✅ 消息历史记录
 - ✅ 自动滚动到最新消息
 - ✅ 房间消息智能分离
+- ✅ **未读消息数显示** - 每个聊天右侧显示红色徽章
+- ✅ **最近聊天排序** - 按最后消息时间智能排序
+- ✅ **一键标记已读** - 点击聊天自动清零未读数
 - 🔄 图片消息 (开发中)
 - 🔄 文件传输 (规划中)
 
