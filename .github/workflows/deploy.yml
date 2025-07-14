@@ -191,35 +191,271 @@ jobs:
         username: ${{ secrets.SERVER_USERNAME }}
         key: ${{ secrets.SERVER_SSH_KEY }}
         script: |
+          echo "🚀 开始 ChatSphere 生产环境部署..."
+
+          # 创建部署目录（如果不存在）
+          sudo mkdir -p /opt/chatsphere
           cd /opt/chatsphere
 
-          # 备份当前配置
-          cp docker-compose.prod.yml docker-compose.prod.yml.backup || echo "No file to backup"
+          # 检查 Docker Compose 命令
+          if command -v docker-compose &> /dev/null; then
+            DOCKER_COMPOSE_CMD="docker-compose"
+          else
+            DOCKER_COMPOSE_CMD="docker compose"
+          fi
+          echo "🐳 使用 Docker Compose 命令: $DOCKER_COMPOSE_CMD"
 
-          # 拉取最新代码
-          git pull origin main
+          # 登录 Docker Registry
+          echo "🔐 登录 Docker Registry..."
+          echo "${{ secrets.DOCKER_PASSWORD }}" | docker login -u "${{ secrets.DOCKER_USERNAME }}" --password-stdin
+
+          # 创建 docker-compose.prod.yml（如果不存在）
+          if [ ! -f "docker-compose.prod.yml" ]; then
+            echo "📝 创建 docker-compose.prod.yml..."
+            cat > docker-compose.prod.yml << 'COMPOSE_EOF'
+          services:
+            postgres:
+              image: postgres:15-alpine
+              container_name: chatsphere-postgres-prod
+              environment:
+                POSTGRES_DB: chatsphere_prod
+                POSTGRES_USER: chatsphere
+                POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+              volumes:
+                - postgres_prod_data:/var/lib/postgresql/data
+              networks:
+                - chatsphere-prod
+              healthcheck:
+                test: ["CMD-SHELL", "pg_isready -U chatsphere -d chatsphere_prod"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
+              restart: unless-stopped
+
+            redis:
+              image: redis:7-alpine
+              container_name: chatsphere-redis-prod
+              command: redis-server --appendonly yes --requirepass "${{ secrets.REDIS_PASSWORD }}"
+              volumes:
+                - redis_prod_data:/data
+              networks:
+                - chatsphere-prod
+              healthcheck:
+                test: ["CMD", "redis-cli", "-a", "${{ secrets.REDIS_PASSWORD }}", "ping"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
+              restart: unless-stopped
+
+            backend:
+              image: ${{ secrets.DOCKER_USERNAME }}/chatsphere-backend:latest
+              container_name: chatsphere-backend-prod
+              user: root
+              command: ["uv", "run", "uvicorn", "src.chatSphere.main:app", "--host", "0.0.0.0", "--port", "8000"]
+              environment:
+                - DATABASE_URL=postgresql://chatsphere:${{ secrets.POSTGRES_PASSWORD }}@postgres:5432/chatsphere_prod
+                - REDIS_URL=redis://:${{ secrets.REDIS_PASSWORD }}@redis:6379/0
+                - SECRET_KEY=${{ secrets.JWT_SECRET_KEY }}
+                - DEBUG=false
+                - ENVIRONMENT=production
+                - CORS_ORIGINS=http://${{ env.SERVER_IP }},https://${{ env.SERVER_IP }}
+              volumes:
+                - backend_prod_logs:/app/logs
+                - backend_prod_uploads:/app/uploads
+              depends_on:
+                postgres:
+                  condition: service_healthy
+                redis:
+                  condition: service_healthy
+              networks:
+                - chatsphere-prod
+              healthcheck:
+                test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
+                start_period: 60s
+              restart: unless-stopped
+
+            frontend:
+              image: ${{ secrets.DOCKER_USERNAME }}/chatsphere-frontend:latest
+              container_name: chatsphere-frontend-prod
+              depends_on:
+                - backend
+              networks:
+                - chatsphere-prod
+              restart: unless-stopped
+
+            nginx:
+              image: nginx:alpine
+              container_name: chatsphere-nginx-prod
+              ports:
+                - "80:80"
+                - "443:443"
+              volumes:
+                - ./nginx.conf:/etc/nginx/conf.d/default.conf
+              depends_on:
+                - frontend
+                - backend
+              networks:
+                - chatsphere-prod
+              healthcheck:
+                test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+                interval: 30s
+                timeout: 10s
+                retries: 3
+              restart: unless-stopped
+
+          volumes:
+            postgres_prod_data:
+            redis_prod_data:
+            backend_prod_logs:
+            backend_prod_uploads:
+
+          networks:
+            chatsphere-prod:
+              driver: bridge
+          COMPOSE_EOF
+          fi
+
+          # 创建 Nginx 配置（如果不存在）
+          if [ ! -f "nginx.conf" ]; then
+            echo "🌐 创建 Nginx 配置..."
+            cat > nginx.conf << 'NGINX_EOF'
+          server {
+              listen 80;
+              server_name _;
+
+              # 健康检查端点
+              location /health {
+                  access_log off;
+                  return 200 "healthy\n";
+                  add_header Content-Type text/plain;
+              }
+
+              # API 代理到后端
+              location /api/ {
+                  proxy_pass http://backend:8000/;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+
+              # WebSocket 代理
+              location /ws/ {
+                  proxy_pass http://backend:8000/ws/;
+                  proxy_http_version 1.1;
+                  proxy_set_header Upgrade $http_upgrade;
+                  proxy_set_header Connection "upgrade";
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+
+              # 前端静态文件
+              location / {
+                  proxy_pass http://frontend:8080/;
+                  proxy_set_header Host $host;
+                  proxy_set_header X-Real-IP $remote_addr;
+                  proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+                  proxy_set_header X-Forwarded-Proto $scheme;
+              }
+          }
+          NGINX_EOF
+          fi
+
+          # 备份当前配置
+          echo "📦 备份当前配置..."
+          if [ -f "docker-compose.prod.yml.backup" ]; then
+            cp docker-compose.prod.yml docker-compose.prod.yml.backup.$(date +%Y%m%d_%H%M%S) || true
+          fi
 
           # 拉取最新镜像
-          docker-compose -f docker-compose.prod.yml pull
+          echo "📥 拉取最新镜像..."
+          $DOCKER_COMPOSE_CMD -f docker-compose.prod.yml pull backend frontend
 
-          # 滚动更新后端服务
-          docker-compose -f docker-compose.prod.yml up -d --no-deps backend
-          sleep 20
+          # 滚动更新 - 先启动基础服务
+          echo "🔄 启动基础服务..."
+          $DOCKER_COMPOSE_CMD -f docker-compose.prod.yml up -d postgres redis
 
-          # 健康检查后端
-          curl -f http://localhost/api/health || exit 1
+          # 等待数据库就绪
+          echo "⏳ 等待数据库就绪..."
+          for i in {1..30}; do
+            if $DOCKER_COMPOSE_CMD -f docker-compose.prod.yml exec -T postgres pg_isready -U chatsphere -d chatsphere_prod &>/dev/null; then
+              echo "✅ 数据库就绪"
+              break
+            fi
+            if [ $i -eq 30 ]; then
+              echo "❌ 数据库启动超时"
+              $DOCKER_COMPOSE_CMD -f docker-compose.prod.yml logs postgres
+              exit 1
+            fi
+            echo "⏳ 等待数据库启动... ($i/30)"
+            sleep 2
+          done
 
-          # 更新前端服务
-          docker-compose -f docker-compose.prod.yml up -d --no-deps frontend nginx
-          sleep 10
+          # 启动后端服务
+          echo "🔄 启动后端服务..."
+          $DOCKER_COMPOSE_CMD -f docker-compose.prod.yml up -d backend
+
+          # 等待后端就绪
+          echo "⏳ 等待后端就绪..."
+          sleep 30
+          for i in {1..10}; do
+            if curl -f http://localhost:8000/health &>/dev/null; then
+              echo "✅ 后端健康检查通过"
+              break
+            fi
+            if [ $i -eq 10 ]; then
+              echo "❌ 后端健康检查失败"
+              echo "📋 后端日志:"
+              $DOCKER_COMPOSE_CMD -f docker-compose.prod.yml logs --tail=20 backend
+              exit 1
+            fi
+            echo "⏳ 等待后端启动... ($i/10)"
+            sleep 10
+          done
+
+          # 启动前端和 Nginx
+          echo "🔄 启动前端和 Nginx..."
+          $DOCKER_COMPOSE_CMD -f docker-compose.prod.yml up -d frontend nginx
+
+          # 等待服务完全启动
+          echo "⏳ 等待服务完全启动..."
+          sleep 15
 
           # 最终健康检查
-          curl -f http://${{ env.SERVER_IP }}/health || exit 1
+          echo "🏥 最终健康检查..."
+          for i in {1..5}; do
+            if curl -f http://localhost/health &>/dev/null; then
+              echo "✅ 最终健康检查通过"
+              break
+            fi
+            if [ $i -eq 5 ]; then
+              echo "❌ 最终健康检查失败"
+              echo "📋 Nginx 日志:"
+              $DOCKER_COMPOSE_CMD -f docker-compose.prod.yml logs --tail=20 nginx
+              echo "📋 所有服务状态:"
+              $DOCKER_COMPOSE_CMD -f docker-compose.prod.yml ps
+              exit 1
+            fi
+            echo "⏳ 等待服务完全启动... ($i/5)"
+            sleep 10
+          done
+
+          # 显示服务状态
+          echo "📊 服务状态:"
+          $DOCKER_COMPOSE_CMD -f docker-compose.prod.yml ps
 
           # 清理旧镜像
+          echo "🧹 清理旧镜像..."
           docker image prune -f
 
-          echo "✅ 生产环境部署成功! 访问地址: http://${{ env.SERVER_IP }}"
+          echo ""
+          echo "🎉 生产环境部署成功!"
+          echo "📍 访问地址: http://${{ env.SERVER_IP }}"
 
   # 部署后通知
   notify:

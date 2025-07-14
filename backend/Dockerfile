@@ -85,15 +85,15 @@ ENV PATH="/root/.local/bin:$PATH"
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --no-dev
 
-# 创建非root用户
-RUN groupadd -r appuser && useradd -r -g appuser appuser
+# 创建非root用户并设置 home 目录
+RUN groupadd -r appuser && useradd -r -g appuser -m -d /home/appuser appuser
 
 # 复制源代码
 COPY . .
 
 # 创建必要的目录并设置权限
-RUN mkdir -p /app/logs /app/uploads && \
-    chown -R appuser:appuser /app
+RUN mkdir -p /app/logs /app/uploads /home/appuser/.cache && \
+    chown -R appuser:appuser /app /home/appuser
 
 # 切换到非root用户
 USER appuser
