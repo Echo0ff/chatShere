@@ -37,7 +37,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/tmp/*
 ```
 
-**效果**: 
+**效果**:
 - 减少 Docker 层数
 - 清理缓存减少镜像大小
 - 使用 `--no-install-recommends` 避免不必要的包
@@ -162,7 +162,7 @@ docker system prune -a
 # 清华大学源
 RUN sed -i 's/deb.debian.org/mirrors.tuna.tsinghua.edu.cn/g' /etc/apt/sources.list.d/debian.sources
 
-# 中科大源  
+# 中科大源
 RUN sed -i 's/deb.debian.org/mirrors.ustc.edu.cn/g' /etc/apt/sources.list.d/debian.sources
 ```
 

@@ -87,14 +87,14 @@ class WebSocketService {
       this.ws.onmessage = (event) => {
         try {
           const message: WebSocketMessage = JSON.parse(event.data);
-          
+
           // 处理心跳响应
           if (message.type === 'pong') {
             this.lastPongTime = Date.now();
             this.resetHeartbeatTimeout();
             return;
           }
-          
+
           console.log('收到WebSocket消息:', message);
           this.notifyMessageHandlers(message);
         } catch (error) {
@@ -108,7 +108,7 @@ class WebSocketService {
         this.stopHeartbeat();
         this.clearConnectionTimeout();
         this.notifyConnectionHandlers(false);
-        
+
         // 只有在非手动断开且非正常关闭时才重连
         if (!this.isManuallyDisconnected && event.code !== 1000) {
           this.handleReconnect();
@@ -158,7 +158,7 @@ class WebSocketService {
   private startHeartbeat(): void {
     this.stopHeartbeat(); // 确保之前的心跳已停止
     this.lastPongTime = Date.now();
-    
+
     // 每30秒发送一次心跳
     this.heartbeatInterval = window.setInterval(() => {
       this.sendHeartbeat();
@@ -185,7 +185,7 @@ class WebSocketService {
     if (this.heartbeatTimeout) {
       clearTimeout(this.heartbeatTimeout);
     }
-    
+
     // 如果45秒内没有收到pong，认为连接断开
     this.heartbeatTimeout = window.setTimeout(() => {
       console.warn('心跳超时，连接可能已断开');
@@ -211,10 +211,10 @@ class WebSocketService {
     if (this.reconnectAttempts < this.maxReconnectAttempts) {
       this.reconnectAttempts++;
       console.log(`尝试重连 (${this.reconnectAttempts}/${this.maxReconnectAttempts})`);
-      
+
       // 使用指数退避算法，但有最大延迟限制
       const delay = Math.min(this.reconnectDelay * Math.pow(2, this.reconnectAttempts - 1), 30000);
-      
+
       setTimeout(() => {
         this.connect();
       }, delay);
@@ -346,11 +346,11 @@ class WebSocketService {
     if (this.ws) {
       this.ws = null;
     }
-    
+
     setTimeout(() => {
       this.connect();
     }, 1000);
   }
 }
 
-export const websocketService = new WebSocketService(); 
+export const websocketService = new WebSocketService();

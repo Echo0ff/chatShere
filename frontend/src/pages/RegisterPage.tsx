@@ -68,41 +68,41 @@ export default function RegisterPage() {
 
   const validateForm = (): {[key: string]: string} => {
     const newErrors: {[key: string]: string} = {};
-    
+
     if (!formData.email.trim()) {
       newErrors.email = '邮箱不能为空';
     } else if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(formData.email)) {
       newErrors.email = '请输入有效的邮箱地址';
     }
-    
+
     if (!formData.username.trim()) {
       newErrors.username = '用户名不能为空';
     } else if (formData.username.length < 3) {
       newErrors.username = '用户名至少需要3个字符';
     }
-    
+
     if (!formData.displayName.trim()) {
       newErrors.displayName = '显示名称不能为空';
     }
-    
+
     if (!formData.password) {
       newErrors.password = '密码不能为空';
     } else if (formData.password.length < 6) {
       newErrors.password = '密码至少需要6个字符';
     }
-    
+
     if (!formData.confirmPassword) {
       newErrors.confirmPassword = '请确认密码';
     } else if (formData.password !== formData.confirmPassword) {
       newErrors.confirmPassword = '两次输入的密码不一致';
     }
-    
+
     return newErrors;
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     const validationErrors = validateForm();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -337,4 +337,4 @@ export default function RegisterPage() {
       </Container>
     </Box>
   );
-} 
+}

@@ -72,7 +72,7 @@ export function ChatArea() {
   // 处理打字状态
   const handleTyping = (value: string) => {
     setInputMessage(value);
-    
+
     if (!isTyping && value.length > 0) {
       setIsTyping(true);
       sendTyping(true);
@@ -94,20 +94,20 @@ export function ChatArea() {
 
   const handleSendMessage = (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     if (!inputMessage.trim() || !chatState.currentChat) {
       return;
     }
 
     sendMessage(inputMessage.trim());
     setInputMessage('');
-    
+
     // 停止打字状态
     if (isTyping) {
       setIsTyping(false);
       sendTyping(false);
     }
-    
+
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
@@ -133,7 +133,7 @@ export function ChatArea() {
   }
 
   const currentTypingUsers = chatState.typingUsers.filter(
-    user => user.chatId === chatState.currentChat?.id && 
+    user => user.chatId === chatState.currentChat?.id &&
             user.chatType === chatState.currentChat?.type &&
             user.userId !== authState.user?.id
   );
@@ -159,7 +159,7 @@ export function ChatArea() {
               <HStack gap={1}>
                 <Box w={2} h={2} bg="green.400" borderRadius="full" />
                 <Text fontSize="xs" color="gray.500">
-                  {chatState.currentChat.type === 'room' ? '房间' : 
+                  {chatState.currentChat.type === 'room' ? '房间' :
                    chatState.currentChat.type === 'group' ? '群组' : '私聊'}
                 </Text>
               </HStack>
@@ -190,19 +190,19 @@ export function ChatArea() {
               currentUser={authState.user}
             />
           ))}
-          
+
           {/* 打字指示器 */}
           {currentTypingUsers.length > 0 && (
             <Box mb={4}>
               <Text fontSize="xs" color="gray.500" fontStyle="italic">
-                {currentTypingUsers.length === 1 
+                {currentTypingUsers.length === 1
                   ? `用户 ${currentTypingUsers[0].userId} 正在输入...`
                   : `${currentTypingUsers.length} 人正在输入...`
                 }
               </Text>
             </Box>
           )}
-          
+
           <div ref={messagesEndRef} />
         </VStack>
       </Box>
@@ -228,7 +228,7 @@ export function ChatArea() {
             </Button>
           </HStack>
         </form>
-        
+
         {!chatState.isConnected && (
           <Text fontSize="xs" color="red.500" mt={2}>
             连接已断开，请检查网络连接
@@ -237,4 +237,4 @@ export function ChatArea() {
       </Box>
     </VStack>
   );
-} 
+}

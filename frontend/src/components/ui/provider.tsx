@@ -16,4 +16,4 @@ export function Provider({ children, ...props }: ProviderProps) {
       </ColorModeProvider>
     </ChakraProvider>
   )
-} 
+}

@@ -19,18 +19,18 @@ echo
 # 检查是否为首次运行
 if [[ ! -f ".env" ]]; then
     print_message $YELLOW "⚙️  首次运行，正在初始化..."
-    
+
     # 复制环境配置文件
     if [[ -f "backend/.env.example" ]]; then
         cp backend/.env.example backend/.env
         print_message $GREEN "✅ 已创建后端环境配置文件"
     fi
-    
+
     if [[ -f "frontend/.env.example" ]]; then
         cp frontend/.env.example frontend/.env.local
         print_message $GREEN "✅ 已创建前端环境配置文件"
     fi
-    
+
     # 创建标记文件
     touch .env
 fi

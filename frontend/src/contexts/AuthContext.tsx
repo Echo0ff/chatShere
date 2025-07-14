@@ -103,15 +103,15 @@ export function AuthProvider({ children }: AuthProviderProps) {
       const token = localStorage.getItem('access_token');
       console.log('🔐 检查认证状态...');
       console.log('🔐 本地存储token:', token ? '存在' : '不存在');
-      
+
       if (token) {
         try {
           console.log('🔐 开始验证用户...');
           dispatch({ type: 'AUTH_START' });
-          
+
           const user = await apiService.getCurrentUser();
           console.log('🔐 获取到用户信息:', user);
-          
+
           if (user && user.id) {
             dispatch({ type: 'AUTH_SUCCESS', payload: user });
             console.log('✅ 用户认证成功');
@@ -141,13 +141,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
     try {
       dispatch({ type: 'AUTH_START' });
       const authResponse: AuthResponse = await apiService.login({ email, password });
-      
+
       // 保存token到localStorage
       localStorage.setItem('access_token', authResponse.access_token);
       localStorage.setItem('refresh_token', authResponse.refresh_token);
-      
+
       dispatch({ type: 'AUTH_SUCCESS', payload: authResponse.user });
-      
+
       // 重新连接WebSocket
       websocketService.connect();
     } catch (error: any) {
@@ -167,13 +167,13 @@ export function AuthProvider({ children }: AuthProviderProps) {
         display_name: displayName,
         password,
       });
-      
+
       // 保存token到localStorage
       localStorage.setItem('access_token', authResponse.access_token);
       localStorage.setItem('refresh_token', authResponse.refresh_token);
-      
+
       dispatch({ type: 'AUTH_SUCCESS', payload: authResponse.user });
-      
+
       // 连接WebSocket
       websocketService.connect();
     } catch (error: any) {
@@ -193,10 +193,10 @@ export function AuthProvider({ children }: AuthProviderProps) {
       // 清除本地存储
       localStorage.removeItem('access_token');
       localStorage.removeItem('refresh_token');
-      
+
       // 断开WebSocket连接
       websocketService.disconnect();
-      
+
       dispatch({ type: 'LOGOUT' });
     }
   };
@@ -224,4 +224,4 @@ export function useAuth(): AuthContextType {
     throw new Error('useAuth必须在AuthProvider内部使用');
   }
   return context;
-} 
+}

@@ -58,7 +58,7 @@ export default function LoginPage() {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    
+
     // 表单验证
     const newErrors: {[key: string]: string} = {};
     if (!formData.username.trim()) {
@@ -67,7 +67,7 @@ export default function LoginPage() {
     if (!formData.password) {
       newErrors.password = '密码不能为空';
     }
-    
+
     if (Object.keys(newErrors).length > 0) {
       setErrors(newErrors);
       return;
@@ -226,4 +226,4 @@ export default function LoginPage() {
       </Container>
     </Box>
   );
-} 
+}

@@ -76,7 +76,7 @@ print_message $YELLOW "⏳ 等待构建完成..."
 wait $BACKEND_PID
 BACKEND_EXIT=$?
 
-wait $FRONTEND_PID  
+wait $FRONTEND_PID
 FRONTEND_EXIT=$?
 
 # 更新缓存
@@ -93,10 +93,10 @@ fi
 # 检查构建结果
 if [ $BACKEND_EXIT -eq 0 ] && [ $FRONTEND_EXIT -eq 0 ]; then
     print_message $GREEN "✅ 所有镜像构建成功！"
-    
+
     print_message $YELLOW "🚀 启动开发环境..."
     docker-compose -f docker-compose.dev.yml up -d
-    
+
     print_message $GREEN "🎉 开发环境启动完成！"
     print_message $BLUE "📱 前端: http://localhost:5173"
     print_message $BLUE "🔧 后端: http://localhost:8000"

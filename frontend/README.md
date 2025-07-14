@@ -103,7 +103,7 @@ npm run preview
 frontend/
 ├── public/                  # 静态资源
 │   ├── vite.svg            # 图标文件
-│   └── ...                 
+│   └── ...
 ├── src/                     # 源代码
 │   ├── components/          # React组件
 │   │   ├── ui/             # 基础UI组件
@@ -195,7 +195,7 @@ class WebSocketService {
     this.ws = new WebSocket(`${VITE_WS_URL}/ws`);
     this.ws.onmessage = this.handleMessage;
   }
-  
+
   sendMessage(data: any) {
     this.ws?.send(JSON.stringify(data));
   }
@@ -289,12 +289,12 @@ server {
     server_name chatsphere.com;
     root /var/www/chatsphere/dist;
     index index.html;
-    
+
     # SPA路由支持
     location / {
         try_files $uri $uri/ /index.html;
     }
-    
+
     # 静态资源缓存
     location /assets/ {
         expires 1y;
@@ -379,10 +379,10 @@ const LoginPage = lazy(() => import('./pages/LoginPage'));
 2. **图片优化**
 ```typescript
 // 使用WebP格式
-<img 
-  src="avatar.webp" 
+<img
+  src="avatar.webp"
   alt="用户头像"
-  loading="lazy" 
+  loading="lazy"
 />
 ```
 

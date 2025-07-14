@@ -10,10 +10,10 @@ export interface ColorModeProviderProps {
   enableSystem?: boolean
 }
 
-export function ColorModeProvider({ 
-  children, 
-  defaultTheme = "dark", 
-  enableSystem = true 
+export function ColorModeProvider({
+  children,
+  defaultTheme = "dark",
+  enableSystem = true
 }: ColorModeProviderProps) {
   return (
     <ThemeProvider
@@ -29,9 +29,9 @@ export function ColorModeProvider({
 
 export function useColorMode() {
   const { theme, setTheme, systemTheme } = useTheme()
-  
+
   const colorMode = theme === "system" ? systemTheme : theme
-  
+
   return {
     colorMode,
     setColorMode: setTheme,
@@ -48,7 +48,7 @@ export function useColorModeValue<T>(light: T, dark: T): T {
 
 export function ColorModeButton() {
   const { colorMode, toggleColorMode } = useColorMode()
-  
+
   return (
     <Button
       onClick={toggleColorMode}
@@ -59,4 +59,4 @@ export function ColorModeButton() {
       {colorMode === "dark" ? "☀️" : "🌙"}
     </Button>
   )
-} 
+}

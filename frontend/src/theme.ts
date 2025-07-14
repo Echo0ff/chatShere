@@ -39,4 +39,4 @@ const config = defineConfig({
   }
 })
 
-export const system = createSystem(defaultConfig, config) 
+export const system = createSystem(defaultConfig, config)

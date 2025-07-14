@@ -18,14 +18,14 @@ function App() {
               <Routes>
                 {/* 默认重定向到聊天页面 */}
                 <Route path="/" element={<Navigate to="/chat" replace />} />
-                
+
                 {/* 认证相关路由 */}
                 <Route path="/login" element={<LoginPage />} />
                 <Route path="/register" element={<RegisterPage />} />
-                
+
                 {/* 聊天页面 */}
                 <Route path="/chat" element={<ChatPage />} />
-                
+
                 {/* 404 页面 */}
                 <Route path="*" element={<Navigate to="/chat" replace />} />
               </Routes>

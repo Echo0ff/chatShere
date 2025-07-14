@@ -58,18 +58,18 @@ check_dependencies() {
 # 清理旧的容器和镜像
 cleanup() {
     print_message $YELLOW "🧹 清理旧的容器和镜像..."
-    
+
     # 停止并删除容器
     docker-compose -f docker-compose.${ENVIRONMENT}.yml down --remove-orphans || true
-    
+
     # 删除未使用的镜像
     docker image prune -f
-    
+
     # 删除未使用的卷（谨慎使用）
     if [[ "$ENVIRONMENT" == "dev" ]]; then
         docker volume prune -f
     fi
-    
+
     print_message $GREEN "✅ 清理完成"
 }
 
@@ -106,7 +106,7 @@ build_images() {
 # 启动服务
 start_services() {
     print_message $YELLOW "🚀 启动 ChatSphere ${ENVIRONMENT} 环境..."
-    
+
     if [[ "$ENVIRONMENT" == "dev" ]]; then
         docker-compose -f docker-compose.dev.yml up -d
     elif [[ "$ENVIRONMENT" == "test" ]]; then
@@ -114,7 +114,7 @@ start_services() {
     elif [[ "$ENVIRONMENT" == "prod" ]]; then
         docker-compose -f docker-compose.prod.yml up -d
     fi
-    
+
     print_message $GREEN "✅ 服务启动完成"
 }
 
@@ -130,16 +130,16 @@ start_monitoring() {
 # 健康检查
 health_check() {
     print_message $YELLOW "🔍 执行健康检查..."
-    
+
     sleep 10  # 等待服务启动
-    
+
     # 检查后端健康状态
     if curl -f http://localhost:8000/health &> /dev/null; then
         print_message $GREEN "✅ 后端服务健康"
     else
         print_message $RED "❌ 后端服务不健康"
     fi
-    
+
     # 检查前端（通过 Nginx）
     if [[ "$ENVIRONMENT" != "dev" ]]; then
         if curl -f http://localhost/health &> /dev/null; then
@@ -154,7 +154,7 @@ health_check() {
 show_status() {
     print_message $BLUE "📋 服务状态:"
     docker-compose -f docker-compose.${ENVIRONMENT}.yml ps
-    
+
     echo
     print_message $BLUE "🌐 访问地址:"
     if [[ "$ENVIRONMENT" == "dev" ]]; then
@@ -175,7 +175,7 @@ main() {
     FAST_BUILD=false
     CLEAN=false
     MONITORING=false
-    
+
     while [[ $# -gt 0 ]]; do
         case $1 in
             dev|test|prod)
@@ -210,44 +210,44 @@ main() {
                 ;;
         esac
     done
-    
+
     # 检查环境参数
     if [[ -z "$ENVIRONMENT" ]]; then
         print_message $RED "❌ 请指定环境: dev, test, 或 prod"
         show_help
         exit 1
     fi
-    
+
     print_message $BLUE "🚀 ChatSphere 部署脚本 - ${ENVIRONMENT} 环境"
     echo
-    
+
     # 检查依赖
     check_dependencies
-    
+
     # 清理（如果需要）
     if [[ "$CLEAN" == true ]]; then
         cleanup
     fi
-    
+
     # 构建镜像（如果需要）
     if [[ "$BUILD" == true ]]; then
         build_images
     fi
-    
+
     # 启动服务
     start_services
-    
+
     # 启动监控（如果需要）
     if [[ "$MONITORING" == true ]]; then
         start_monitoring
     fi
-    
+
     # 健康检查
     health_check
-    
+
     # 显示状态
     show_status
-    
+
     echo
     print_message $GREEN "🎉 ChatSphere ${ENVIRONMENT} 环境部署完成！"
 }

@@ -36,16 +36,16 @@ read -p "请输入选项 (1-5): " choice
 case $choice in
     1)
         print_message $YELLOW "🔄 临时禁用 Docker 代理..."
-        
+
         # 创建临时的 Docker 配置目录
         mkdir -p ~/.docker
-        
+
         # 备份现有配置
         if [[ -f ~/.docker/config.json ]]; then
             cp ~/.docker/config.json ~/.docker/config.json.backup
             print_message $GREEN "✅ 已备份现有 Docker 配置"
         fi
-        
+
         # 创建无代理的配置
         cat > ~/.docker/config.json << EOF
 {
@@ -58,23 +58,23 @@ case $choice in
   }
 }
 EOF
-        
+
         print_message $GREEN "✅ 已禁用 Docker 代理"
         print_message $BLUE "💡 现在可以重新运行 Docker Compose 命令"
         ;;
-        
+
     2)
         print_message $YELLOW "🌏 配置国内镜像源..."
-        
+
         # 创建 Docker daemon 配置
         sudo mkdir -p /etc/docker
-        
+
         # 备份现有配置
         if [[ -f /etc/docker/daemon.json ]]; then
             sudo cp /etc/docker/daemon.json /etc/docker/daemon.json.backup
             print_message $GREEN "✅ 已备份现有 daemon 配置"
         fi
-        
+
         # 配置国内镜像源
         sudo tee /etc/docker/daemon.json > /dev/null << EOF
 {
@@ -88,20 +88,20 @@ EOF
   "experimental": false
 }
 EOF
-        
+
         print_message $GREEN "✅ 已配置国内镜像源"
         print_message $YELLOW "⚠️  需要重启 Docker 服务"
-        
+
         read -p "是否现在重启 Docker 服务? (y/N): " restart_docker
         if [[ "$restart_docker" =~ ^[Yy]$ ]]; then
             sudo systemctl restart docker
             print_message $GREEN "✅ Docker 服务已重启"
         fi
         ;;
-        
+
     3)
         print_message $YELLOW "🔍 检查代理服务..."
-        
+
         # 检查端口 7890 是否有服务在监听
         if netstat -tuln | grep -q ":7890"; then
             print_message $GREEN "✅ 代理服务正在运行"
@@ -109,7 +109,7 @@ EOF
             print_message $RED "❌ 代理服务未运行"
             print_message $BLUE "💡 请启动您的代理软件（如 Clash、V2Ray 等）"
         fi
-        
+
         # 测试代理连接
         if curl -x http://127.0.0.1:7890 --connect-timeout 5 -s http://www.google.com > /dev/null 2>&1; then
             print_message $GREEN "✅ 代理连接正常"
@@ -117,17 +117,17 @@ EOF
             print_message $RED "❌ 代理连接失败"
         fi
         ;;
-        
+
     4)
         print_message $YELLOW "⚙️  手动配置 Docker 代理..."
-        
+
         echo "请输入代理信息（留空表示不使用代理）:"
         read -p "HTTP 代理 (如: http://127.0.0.1:7890): " http_proxy
         read -p "HTTPS 代理 (如: http://127.0.0.1:7890): " https_proxy
         read -p "不使用代理的地址 (如: localhost,127.0.0.1): " no_proxy
-        
+
         mkdir -p ~/.docker
-        
+
         if [[ -n "$http_proxy" || -n "$https_proxy" ]]; then
             cat > ~/.docker/config.json << EOF
 {
@@ -156,12 +156,12 @@ EOF
             print_message $GREEN "✅ 已禁用 Docker 代理"
         fi
         ;;
-        
+
     5)
         print_message $BLUE "👋 退出"
         exit 0
         ;;
-        
+
     *)
         print_message $RED "❌ 无效选项"
         exit 1

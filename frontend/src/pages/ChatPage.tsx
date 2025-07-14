@@ -30,11 +30,11 @@ const ConversationSidebar = ({ onChatSelect, selectedChatId, selectedChatType }:
     loadRooms();
     loadOnlineUsers();
   }, []);
-  
+
   // 更新房间在线人数
   const updateRoomOnlineCounts = async () => {
     const counts: Record<string, number> = {};
-    
+
     for (const room of state.rooms) {
       try {
         const count = await getRoomOnlineCount(room.id);
@@ -44,20 +44,20 @@ const ConversationSidebar = ({ onChatSelect, selectedChatId, selectedChatType }:
         counts[room.id] = room.online_count; // 使用备用值
       }
     }
-    
+
     setRoomOnlineCounts(counts);
   };
-  
+
   // 定期更新房间在线人数
   useEffect(() => {
     if (state.rooms.length > 0) {
       updateRoomOnlineCounts();
-      
+
       const interval = setInterval(updateRoomOnlineCounts, 15000); // 每15秒更新一次
       return () => clearInterval(interval);
     }
   }, [state.rooms.length]);
-  
+
   // 当会话列表更新时，也更新房间在线人数
   useEffect(() => {
     if (state.conversations.length > 0) {
@@ -166,10 +166,10 @@ const ConversationSidebar = ({ onChatSelect, selectedChatId, selectedChatType }:
                   conv => conv.chat_type === 'room' && conv.chat_id === room.id
                 );
                 const unreadCount = roomConversation?.unread_count || 0;
-                
+
                 // 使用实时在线人数，如果没有则使用房间的初始值
                 const onlineCount = roomOnlineCounts[room.id] ?? room.online_count;
-                
+
                 return (
                   <HStack
                     key={room.id}
@@ -285,7 +285,7 @@ const ConversationSidebar = ({ onChatSelect, selectedChatId, selectedChatType }:
 
 const MessageBubble = ({ message, isOwn }: { message: any; isOwn: boolean }) => {
   const { state } = useChat();
-  
+
   // 从在线用户列表中获取用户信息
   const sender = state.onlineUsers.find(user => user.id === message.from_user_id);
   const senderName = sender?.display_name || sender?.username || '未知用户';
@@ -295,15 +295,15 @@ const MessageBubble = ({ message, isOwn }: { message: any; isOwn: boolean }) => 
     const date = new Date(dateString);
     const now = new Date();
     const isToday = date.toDateString() === now.toDateString();
-    
+
     if (isToday) {
-      return date.toLocaleTimeString('zh-CN', { 
-        hour: '2-digit', 
-        minute: '2-digit' 
+      return date.toLocaleTimeString('zh-CN', {
+        hour: '2-digit',
+        minute: '2-digit'
       });
     } else {
-      return date.toLocaleDateString('zh-CN', { 
-        month: 'short', 
+      return date.toLocaleDateString('zh-CN', {
+        month: 'short',
         day: 'numeric',
         hour: '2-digit',
         minute: '2-digit'
@@ -335,14 +335,14 @@ const MessageBubble = ({ message, isOwn }: { message: any; isOwn: boolean }) => 
           {senderName.charAt(0).toUpperCase()}
         </Box>
       )}
-      
+
       <Box maxW="70%" minW="120px">
         {!isOwn && (
           <Text fontSize="xs" color="fg.muted" mb={1}>
             {senderName}
           </Text>
         )}
-        
+
         <Box
           bg={isOwn ? 'blue.500' : 'bg.muted'}
           color={isOwn ? 'white' : 'fg'}
@@ -356,16 +356,16 @@ const MessageBubble = ({ message, isOwn }: { message: any; isOwn: boolean }) => 
           shadow="sm"
         >
           <Text>{message.content}</Text>
-          
+
           <HStack justify="space-between" align="center" mt={2} gap={2}>
-            <Text 
-              fontSize="xs" 
+            <Text
+              fontSize="xs"
               color={isOwn ? 'blue.100' : 'fg.subtle'}
               opacity={0.8}
             >
               {formatTime(message.created_at)}
             </Text>
-            
+
             {isOwn && (
               <HStack gap={1}>
                 {message.is_edited && (
@@ -385,7 +385,7 @@ const MessageBubble = ({ message, isOwn }: { message: any; isOwn: boolean }) => 
           </HStack>
         </Box>
       </Box>
-      
+
       {isOwn && (
         <Box
           w={8}
@@ -414,7 +414,7 @@ const ChatArea = ({ chatId, chatType }: any) => {
   const [isTyping, setIsTyping] = useState(false);
   const [currentRoomOnlineCount, setCurrentRoomOnlineCount] = useState<number>(0);
   const typingTimeoutRef = useRef<number | null>(null);
-  
+
   // 添加消息容器引用
   const messagesContainerRef = useRef<HTMLDivElement>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -422,7 +422,7 @@ const ChatArea = ({ chatId, chatType }: any) => {
   // 自动滚动到底部的函数
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView({ 
+      messagesEndRef.current.scrollIntoView({
         behavior: 'smooth',
         block: 'end'
       });
@@ -455,12 +455,12 @@ const ChatArea = ({ chatId, chatType }: any) => {
           console.error('获取房间在线人数失败:', error);
         }
       };
-      
+
       fetchRoomOnlineCount();
-      
+
       // 每30秒更新一次在线人数
       const interval = setInterval(fetchRoomOnlineCount, 30000);
-      
+
       return () => clearInterval(interval);
     } else {
       setCurrentRoomOnlineCount(0);
@@ -469,12 +469,12 @@ const ChatArea = ({ chatId, chatType }: any) => {
 
   const handleStartChat = () => {
     console.log('开始聊天按钮被点击');
-    
+
     // 直接跳转到大厅聊天室
-    const hallRoom = state.rooms.find(room => room.name === '大厅') || 
+    const hallRoom = state.rooms.find(room => room.name === '大厅') ||
                      state.rooms.find(room => room.id === 'general') ||
                      state.rooms[0]; // 如果都没找到，选择第一个房间
-    
+
     if (hallRoom) {
       setCurrentChat({
         id: hallRoom.id,
@@ -498,11 +498,11 @@ const ChatArea = ({ chatId, chatType }: any) => {
 
   const handleSendMessage = () => {
     if (!messageInput.trim()) return;
-    
+
     console.log('发送消息:', messageInput);
     sendMessage(messageInput.trim());
     setMessageInput('');
-    
+
     // 发送消息后停止打字状态
     handleStopTyping();
   };
@@ -518,7 +518,7 @@ const ChatArea = ({ chatId, chatType }: any) => {
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
     setMessageInput(value);
-    
+
     // 如果有内容且WebSocket连接正常，开始打字
     if (value.trim() && state.isConnected && state.currentChat) {
       handleStartTyping();
@@ -533,12 +533,12 @@ const ChatArea = ({ chatId, chatType }: any) => {
       setIsTyping(true);
       sendTyping(true);
     }
-    
+
     // 清除之前的定时器
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
     }
-    
+
     // 设置新的定时器，2秒后停止打字状态
     typingTimeoutRef.current = window.setTimeout(() => {
       handleStopTyping();
@@ -551,7 +551,7 @@ const ChatArea = ({ chatId, chatType }: any) => {
       setIsTyping(false);
       sendTyping(false);
     }
-    
+
     if (typingTimeoutRef.current) {
       clearTimeout(typingTimeoutRef.current);
       typingTimeoutRef.current = null;
@@ -583,8 +583,8 @@ const ChatArea = ({ chatId, chatType }: any) => {
             选择一个聊天开始对话，或者点击下方按钮加入公共聊天室。
           </Text>
           <VStack gap={2}>
-            <Button 
-              colorScheme="blue" 
+            <Button
+              colorScheme="blue"
               size="lg"
               onClick={handleStartChat}
               loading={state.isLoading}
@@ -623,7 +623,7 @@ const ChatArea = ({ chatId, chatType }: any) => {
               </HStack>
             )}
           </VStack>
-          
+
           {/* 连接状态 */}
           <HStack gap={2}>
             <Box
@@ -679,7 +679,7 @@ const ChatArea = ({ chatId, chatType }: any) => {
               </Text>
             </HStack>
           )}
-          
+
           {/* 打字状态指示器 */}
           {state.typingUsers.length > 0 && (
             <HStack gap={2} align="center">
@@ -691,13 +691,13 @@ const ChatArea = ({ chatId, chatType }: any) => {
                 animation="pulse 1.5s infinite"
               />
               <Text fontSize="sm" color="fg.muted">
-                {state.typingUsers.map(user => 
+                {state.typingUsers.map(user =>
                   state.onlineUsers.find(u => u.id === user.userId)?.display_name || '用户'
                 ).join(', ')} 正在输入...
               </Text>
             </HStack>
           )}
-          
+
           {/* 输入框和发送按钮 */}
           <HStack gap={2} w="100%">
             <Input
@@ -722,7 +722,7 @@ const ChatArea = ({ chatId, chatType }: any) => {
               发送
             </Button>
           </HStack>
-          
+
           {/* 状态信息 */}
           <HStack justify="space-between" w="100%" fontSize="xs" color="fg.subtle">
             <Text>
@@ -744,7 +744,7 @@ export default function ChatPage() {
   const [selectedChatId, setSelectedChatId] = useState<string | null>(null);
   const [selectedChatType, setSelectedChatType] = useState<'private' | 'group' | 'room'>('private');
   const [showSidebar, setShowSidebar] = useState(false);
-  
+
   // 响应式断点
   const isMobile = useBreakpointValue({ base: true, lg: false });
 
@@ -757,10 +757,10 @@ export default function ChatPage() {
   const handleChatSelect = (chatId: string, chatType: 'private' | 'group' | 'room', chatName?: string) => {
     setSelectedChatId(chatId);
     setSelectedChatType(chatType);
-    
+
     // 设置当前聊天并加载消息
     let displayName = chatName;
-    
+
     if (chatType === 'private') {
       displayName = chatName ? `与 ${chatName} 的私聊` : '私聊';
     } else if (chatType === 'room') {
@@ -768,17 +768,17 @@ export default function ChatPage() {
       const room = chatState.rooms.find((r: any) => r.id === chatId);
       displayName = room?.name || chatId;
     }
-    
+
     setCurrentChat({
       id: chatId,
       type: chatType,
       name: displayName || chatId
     });
-    
+
     // 加载消息并标记会话为已读
     loadMessages(chatType, chatId);
     markConversationAsRead(chatType, chatId);
-    
+
     // 在移动端选择聊天后关闭侧边栏
     if (isMobile) {
       setShowSidebar(false);
@@ -804,7 +804,7 @@ export default function ChatPage() {
           <Heading size="md" color="fg">
             ChatSphere
           </Heading>
-          
+
           {/* 右侧用户信息和设置 */}
           <HStack gap={4}>
             {/* 当前用户信息 */}
@@ -816,7 +816,7 @@ export default function ChatPage() {
                 @{authState.user?.username}
               </Text>
             </VStack>
-            
+
             {/* 用户头像 */}
             <Box
               w={8}
@@ -832,11 +832,11 @@ export default function ChatPage() {
             >
               {(authState.user?.display_name || authState.user?.username || 'U').charAt(0).toUpperCase()}
             </Box>
-            
+
             <ColorModeButton />
           </HStack>
         </Flex>
-        
+
         <Grid
           templateColumns="350px 1fr"
           h="calc(100vh - 60px)"
@@ -888,7 +888,7 @@ export default function ChatPage() {
         <Heading size="md" color="fg">
           ChatSphere
         </Heading>
-        
+
         {/* 移动端右侧：只显示用户头像和色彩模式按钮 */}
         <HStack gap={2}>
           {/* 用户头像 */}
@@ -906,7 +906,7 @@ export default function ChatPage() {
           >
             {(authState.user?.display_name || authState.user?.username || 'U').charAt(0).toUpperCase()}
           </Box>
-          
+
           <ColorModeButton />
         </HStack>
       </Flex>
@@ -940,4 +940,4 @@ export default function ChatPage() {
       </Flex>
     </Flex>
   );
-} 
+}
