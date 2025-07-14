@@ -2,6 +2,7 @@
 ChatSphere 应用配置
 """
 from pydantic_settings import BaseSettings, SettingsConfigDict
+from pydantic import Field
 from typing import Optional, List
 import os
 
@@ -57,8 +58,14 @@ class Settings(BaseSettings):
     postgres_db: str = "chatsphere"
     postgres_echo: bool = False
     
+    # 添加 DATABASE_URL 环境变量支持
+    database_url_env: Optional[str] = Field(None, alias="DATABASE_URL")
+
     @property
     def database_url(self) -> str:
+        # 优先使用环境变量中的 DATABASE_URL
+        if self.database_url_env:
+            return self.database_url_env.replace('postgresql://', 'postgresql+asyncpg://')
         return f"postgresql+asyncpg://{self.postgres_user}:{self.postgres_password}@{self.postgres_host}:{self.postgres_port}/{self.postgres_db}"
     
     # Redis配置
@@ -68,8 +75,14 @@ class Settings(BaseSettings):
     redis_db: int = 0
     redis_expire_seconds: int = 3600
     
+    # 添加 REDIS_URL 环境变量支持
+    redis_url_env: Optional[str] = Field(None, alias="REDIS_URL")
+
     @property
     def redis_url(self) -> str:
+        # 优先使用环境变量中的 REDIS_URL
+        if self.redis_url_env:
+            return self.redis_url_env
         if self.redis_password:
             return f"redis://:{self.redis_password}@{self.redis_host}:{self.redis_port}/{self.redis_db}"
         return f"redis://{self.redis_host}:{self.redis_port}/{self.redis_db}"

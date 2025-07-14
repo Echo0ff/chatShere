@@ -1,0 +1,127 @@
+# ChatSphere 测试环境 Docker Compose
+version: '3.8'
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: chatsphere-postgres-test
+    environment:
+      POSTGRES_DB: chatsphere_test
+      POSTGRES_USER: chatsphere
+      POSTGRES_PASSWORD: test_password_456
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    volumes:
+      - postgres_test_data:/var/lib/postgresql/data
+      - ./backend/scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - chatsphere-test
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatsphere -d chatsphere_test"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: chatsphere-redis-test
+    command: redis-server --appendonly yes --requirepass test_redis_456
+    volumes:
+      - redis_test_data:/data
+    networks:
+      - chatsphere-test
+    healthcheck:
+      test: ["CMD", "redis-cli", "--raw", "incr", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 后端服务
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+      target: testing
+    container_name: chatsphere-backend-test
+    environment:
+      - DATABASE_URL=postgresql://chatsphere:test_password_456@postgres:5432/chatsphere_test
+      - REDIS_URL=redis://:test_redis_456@redis:6379/0
+      - SECRET_KEY=test_secret_key_very_long_and_secure_for_testing_environment
+      - DEBUG=false
+      - ENVIRONMENT=testing
+      - CORS_ORIGINS=http://nginx:80
+    volumes:
+      - backend_test_logs:/app/logs
+      - backend_test_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - chatsphere-test
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 前端服务 (Nginx)
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: testing
+    container_name: chatsphere-frontend-test
+    depends_on:
+      - backend
+    networks:
+      - chatsphere-test
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  # Nginx 反向代理
+  nginx:
+    image: nginx:alpine
+    container_name: chatsphere-nginx-test
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./nginx/test.conf:/etc/nginx/conf.d/default.conf
+      - ./nginx/nginx.conf:/etc/nginx/nginx.conf
+      - nginx_test_logs:/var/log/nginx
+    depends_on:
+      - frontend
+      - backend
+    networks:
+      - chatsphere-test
+    healthcheck:
+      test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+# 数据卷
+volumes:
+  postgres_test_data:
+    driver: local
+  redis_test_data:
+    driver: local
+  backend_test_logs:
+    driver: local
+  backend_test_uploads:
+    driver: local
+  nginx_test_logs:
+    driver: local
+
+# 网络
+networks:
+  chatsphere-test:
+    driver: bridge
+    name: chatsphere-test-network

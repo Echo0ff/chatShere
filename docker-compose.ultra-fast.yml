@@ -1,0 +1,69 @@
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: chatsphere-postgres-dev
+    environment:
+      POSTGRES_DB: chatsphere_dev
+      POSTGRES_USER: chatsphere
+      POSTGRES_PASSWORD: dev_password_123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+    networks:
+      - chatsphere-dev
+
+  redis:
+    image: redis:7-alpine
+    container_name: chatsphere-redis-dev
+    command: redis-server --appendonly yes --requirepass dev_redis_123
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - chatsphere-dev
+
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.fast
+    container_name: chatsphere-backend-dev
+    environment:
+      - DATABASE_URL=postgresql://chatsphere:dev_password_123@postgres:5432/chatsphere_dev
+      - REDIS_URL=redis://:dev_redis_123@redis:6379/0
+      - SECRET_KEY=dev_secret_key_not_for_production
+      - DEBUG=true
+      - ENVIRONMENT=development
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+    depends_on:
+      - postgres
+      - redis
+    networks:
+      - chatsphere-dev
+
+  frontend:
+    image: node:18-alpine
+    container_name: chatsphere-frontend-dev
+    working_dir: /app
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_WS_URL=ws://localhost:8000
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+    command: sh -c "npm install && npm run dev -- --host 0.0.0.0"
+    networks:
+      - chatsphere-dev
+
+volumes:
+  postgres_dev_data:
+  redis_dev_data:
+
+networks:
+  chatsphere-dev:
+    driver: bridge

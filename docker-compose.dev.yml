@@ -1,0 +1,114 @@
+# ChatSphere 开发环境 Docker Compose
+
+services:
+  # PostgreSQL 数据库
+  postgres:
+    image: postgres:15-alpine
+    container_name: chatsphere-postgres-dev
+    environment:
+      POSTGRES_DB: chatsphere_dev
+      POSTGRES_USER: chatsphere
+      POSTGRES_PASSWORD: dev_password_123
+      POSTGRES_INITDB_ARGS: "--encoding=UTF-8 --lc-collate=C --lc-ctype=C"
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_dev_data:/var/lib/postgresql/data
+      - ./backend/scripts/init-db.sql:/docker-entrypoint-initdb.d/init-db.sql
+    networks:
+      - chatsphere-dev
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U chatsphere -d chatsphere_dev"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Redis 缓存
+  redis:
+    image: redis:7-alpine
+    container_name: chatsphere-redis-dev
+    command: redis-server --appendonly yes --requirepass dev_redis_123
+    ports:
+      - "6380:6379"
+    volumes:
+      - redis_dev_data:/data
+    networks:
+      - chatsphere-dev
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "dev_redis_123", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # 后端服务
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile.dev
+    container_name: chatsphere-backend-dev
+    environment:
+      - DATABASE_URL=postgresql://chatsphere:dev_password_123@postgres:5432/chatsphere_dev
+      - REDIS_URL=redis://:dev_redis_123@redis:6379/0
+      - SECRET_KEY=dev_secret_key_very_long_and_secure_for_development
+      - DEBUG=true
+      - ENVIRONMENT=development
+      - CORS_ORIGINS=http://localhost:5173,http://localhost:3000
+    ports:
+      - "8000:8000"
+    volumes:
+      - ./backend:/app
+      - /app/.venv
+      - backend_dev_logs:/app/logs
+      - backend_dev_uploads:/app/uploads
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - chatsphere-dev
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:8000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # 前端服务
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      target: development
+    container_name: chatsphere-frontend-dev
+    environment:
+      - VITE_API_URL=http://localhost:8000
+      - VITE_WS_URL=ws://localhost:8000
+      - VITE_APP_NAME=ChatSphere Dev
+      - VITE_DEBUG=true
+    ports:
+      - "5173:5173"
+    volumes:
+      - ./frontend:/app
+      - /app/node_modules
+    depends_on:
+      - backend
+    networks:
+      - chatsphere-dev
+
+# 数据卷
+volumes:
+  postgres_dev_data:
+    driver: local
+  redis_dev_data:
+    driver: local
+  backend_dev_logs:
+    driver: local
+  backend_dev_uploads:
+    driver: local
+
+# 网络
+networks:
+  chatsphere-dev:
+    driver: bridge
+    name: chatsphere-dev-network

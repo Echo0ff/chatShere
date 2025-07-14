@@ -1,0 +1,75 @@
+# ChatSphere 前端 Docker 忽略文件
+# 减少构建上下文，提高构建速度
+
+# 依赖
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# 构建产物
+dist/
+build/
+.next/
+out/
+
+# 缓存
+.cache/
+.parcel-cache/
+.nuxt/
+.vuepress/dist
+
+# IDE 文件
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# 环境文件
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# 日志文件
+*.log
+logs/
+
+# 测试覆盖率
+coverage/
+.nyc_output
+
+# Git 相关
+.git/
+.gitignore
+
+# Docker 相关
+Dockerfile*
+.dockerignore
+docker-compose*.yml
+
+# 文档
+*.md
+!README.md
+
+# 临时文件
+*.tmp
+*.temp
+.DS_Store
+Thumbs.db
+
+# ESLint 缓存
+.eslintcache
+
+# TypeScript 缓存
+*.tsbuildinfo
+
+# Storybook
+.storybook/
+storybook-static/
+
+# 其他
+.vercel
+.netlify

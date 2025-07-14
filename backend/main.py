@@ -13,7 +13,7 @@ from fastapi.responses import JSONResponse
 from sqlalchemy.ext.asyncio import AsyncSession
 from fastapi.exceptions import RequestValidationError
 
-from config import settings, is_development
+from src.chatSphere.core.config import settings, is_development 
 from src.chatSphere.core.database import db_manager, get_db, check_database_health
 from src.chatSphere.core.cache import cache_manager, check_redis_health
 from src.chatSphere.core.auth import get_current_active_user, get_optional_user
@@ -21,19 +21,13 @@ from src.chatSphere.core.models import User, Message, Room, Group, ChatType, Mes
 from src.chatSphere.core.middleware import setup_middleware, WebSocketConnectionMiddleware
 from src.chatSphere.core.websocket_manager import ConnectionManager
 from src.chatSphere.services.responses import ApiResponse, ResponseCode, ResponseMessage, HTTP_STATUS_MAP, format_validation_errors
+from src.chatSphere.core.logging_config import setup_logging
 
 # 导入路由
 from src.chatSphere.api.routes.auth import router as auth_router
 
 # 配置日志
-logging.basicConfig(
-    level=getattr(logging, settings.log_level),
-    format=settings.log_format,
-    handlers=[
-        logging.StreamHandler(),
-        logging.FileHandler('logs/chatsphere.log') if not is_development() else logging.NullHandler()
-    ]
-)
+setup_logging()
 logger = logging.getLogger(__name__)
 
 # 全局连接管理器

@@ -1,0 +1,43 @@
+# ChatSphere 后端开发环境专用 Dockerfile
+# 经过优化，构建更快，更稳定
+
+FROM python:3.11-slim
+
+# 设置工作目录
+WORKDIR /app
+
+# 设置环境变量
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+# 1. 【修复】跳过APT源更换，避免复杂的文件操作
+# 直接使用官方源，虽然可能慢一些，但更稳定
+# COPY sources.list /etc/apt/
+# RUN mv /etc/apt/sources.list.d/debian.sources /etc/apt/sources.list.d/debian.sources.bak
+
+# 2. 【修复】跳过系统依赖安装，直接使用Python
+# 大多数情况下不需要额外的系统包，这样可以节省大量时间
+# RUN apt-get update && apt-get install -y --no-install-recommends \
+#     curl \
+#     && apt-get clean \
+#     && rm -rf /var/lib/apt/lists/*
+
+# 3. 【优化】高效安装 Python 依赖
+#    首先只复制依赖定义文件，而不是全部代码
+COPY pyproject.toml poetry.lock* uv.lock* README.md* ./
+# 使用 uv 或 pip 安装依赖。这一层会被缓存，只要依赖文件不变，就不会重新安装。
+RUN pip install uv
+RUN uv sync --dev
+
+# 4. 【优化】最后再复制全部源代码
+#    这样修改代码时，不会触发前面所有步骤的重新构建
+COPY . .
+
+# 暴露端口
+EXPOSE 8000
+
+# 开发环境启动命令
+CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

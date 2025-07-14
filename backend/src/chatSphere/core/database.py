@@ -9,7 +9,7 @@ from typing import AsyncGenerator, Optional
 import logging
 from functools import wraps
 
-from config import settings
+from .config import settings
 from .models import Base
 
 logger = logging.getLogger(__name__)

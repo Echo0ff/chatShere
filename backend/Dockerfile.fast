@@ -1,0 +1,30 @@
+# ChatSphere 后端超快构建版本
+# 专为解决构建慢问题设计
+
+FROM python:3.11-slim
+
+WORKDIR /app
+
+# 环境变量
+ENV PYTHONUNBUFFERED=1 \
+    PYTHONDONTWRITEBYTECODE=1 \
+    PIP_NO_CACHE_DIR=1 \
+    PIP_DISABLE_PIP_VERSION_CHECK=1 \
+    DEBIAN_FRONTEND=noninteractive
+
+# 【策略1】完全跳过系统包安装，只安装Python包管理器
+# 大多数Python项目其实不需要额外的系统包
+RUN pip install --no-cache-dir uv
+
+# 【策略2】先复制依赖文件，利用Docker缓存
+COPY pyproject.toml uv.lock ./
+
+# 【策略3】使用uv的内置缓存，避免重复下载
+RUN uv sync --dev
+
+# 【策略4】最后复制代码，确保代码修改不会触发依赖重装
+COPY . .
+
+EXPOSE 8000
+
+CMD ["uv", "run", "uvicorn", "src.chatSphere.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]

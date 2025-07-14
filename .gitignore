@@ -15,8 +15,43 @@ Thumbs.db
 
 # 日志文件
 *.log
+logs/
 
 # 环境变量文件 (全局)
 .env
 .env.local
 .env.*.local
+
+# Docker 相关
+.docker/
+docker-compose.override.yml
+
+# 密钥文件 (重要: 不要提交到版本控制)
+secrets/*.txt
+secrets/*.key
+secrets/*.pem
+!secrets/.gitkeep
+
+# 监控数据
+monitoring/data/
+prometheus_data/
+grafana_data/
+alertmanager_data/
+
+# 备份文件
+*.backup
+*.bak
+backup/
+backups/
+
+# 上传文件
+uploads/
+!uploads/.gitkeep
+
+# 缓存文件
+.cache/
+cache/
+
+# 构建产物
+dist/
+build/

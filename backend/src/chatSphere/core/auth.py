@@ -1,7 +1,7 @@
 """
 JWT认证和OAuth2系统
 """
-import jwt
+from jose import jwt
 import uuid
 import secrets
 from datetime import datetime, timedelta
@@ -14,7 +14,7 @@ from sqlalchemy import select
 import httpx
 from authlib.integrations.httpx_client import AsyncOAuth2Client
 
-from config import settings
+from .config import settings
 from .models import User, RefreshToken, OAuthProvider, UserStatus
 from .database import get_db
 from .cache import cache_manager

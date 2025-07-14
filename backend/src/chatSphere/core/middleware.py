@@ -12,7 +12,7 @@ from fastapi import Request, Response, HTTPException, status
 from starlette.middleware.base import BaseHTTPMiddleware
 from starlette.responses import JSONResponse
 
-from config import settings
+from .config import settings
 from .cache import cache_manager
 from .auth import auth_manager
 

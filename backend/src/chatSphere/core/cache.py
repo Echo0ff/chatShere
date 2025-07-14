@@ -7,10 +7,10 @@ from typing import Any, Optional, Union, Dict, List
 from datetime import datetime, timedelta
 import logging
 
-import aioredis
-from aioredis import Redis
+import redis.asyncio as redis
+from redis.asyncio import Redis
 
-from config import settings
+from .config import settings
 
 logger = logging.getLogger(__name__)
 
@@ -29,7 +29,7 @@ class CacheManager:
             return
         
         try:
-            self.redis = aioredis.from_url(
+            self.redis = redis.from_url(
                 settings.redis_url,
                 encoding="utf-8",
                 decode_responses=True,
