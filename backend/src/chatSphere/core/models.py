@@ -20,10 +20,13 @@ from sqlalchemy import (
     UniqueConstraint,
 )
 from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import relationship
+from sqlalchemy.orm import DeclarativeBase, relationship
 from sqlalchemy.sql import func
 
-Base = declarative_base()
+
+# 创建基类，使用类型注解
+class Base(DeclarativeBase):
+    pass
 
 
 class UserStatus(str, enum.Enum):
@@ -97,13 +100,13 @@ class User(Base):
 
     # 认证信息
     hashed_password = Column(String(255), nullable=True)  # OAuth用户可能没有密码
-    oauth_provider = Column(Enum(OAuthProvider), default=OAuthProvider.LOCAL)
+    oauth_provider: Column[OAuthProvider] = Column(Enum(OAuthProvider), default=OAuthProvider.LOCAL)
     oauth_id = Column(String(255), nullable=True)
 
     # 用户信息
     avatar_url = Column(String(500), nullable=True)
     bio = Column(Text, nullable=True)
-    status = Column(Enum(UserStatus), default=UserStatus.ACTIVE)
+    status: Column[UserStatus] = Column(Enum(UserStatus), default=UserStatus.ACTIVE)
 
     # 设置
     is_verified = Column(Boolean, default=False)
@@ -218,8 +221,8 @@ class Message(Base):
 
     # 消息内容
     content = Column(Text, nullable=False)
-    message_type = Column(Enum(MessageType), default=MessageType.TEXT)
-    chat_type = Column(Enum(ChatType), nullable=False)
+    message_type: Column[MessageType] = Column(Enum(MessageType), default=MessageType.TEXT)
+    chat_type: Column[ChatType] = Column(Enum(ChatType), nullable=False)
 
     # 附件信息
     file_url = Column(String(500), nullable=True)
@@ -299,7 +302,7 @@ class Conversation(Base):
     room_id = Column(String(50), ForeignKey("rooms.id", ondelete="CASCADE"), nullable=True)
 
     # 会话信息
-    chat_type = Column(Enum(ChatType), nullable=False)
+    chat_type: Column[ChatType] = Column(Enum(ChatType), nullable=False)
     last_message_id = Column(BigInteger, ForeignKey("messages.id"), nullable=True)
     unread_count = Column(Integer, default=0)
 

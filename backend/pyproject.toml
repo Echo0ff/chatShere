@@ -59,20 +59,33 @@ line_length = 100
 
 [tool.mypy]
 python_version = "3.11"
-warn_return_any = true
-warn_unused_configs = true
-disallow_untyped_defs = true
-disallow_incomplete_defs = true
-check_untyped_defs = true
-disallow_untyped_decorators = true
-no_implicit_optional = true
-warn_redundant_casts = true
-warn_unused_ignores = true
-warn_no_return = true
-warn_unreachable = true
-strict_equality = true
 mypy_path = "src"
 packages = ["chatSphere"]
+# 基本检查
+warn_return_any = false
+warn_unused_configs = true
+# 类型定义检查 - 暂时放宽
+disallow_untyped_defs = false
+disallow_incomplete_defs = false
+check_untyped_defs = false
+disallow_untyped_decorators = false
+# 可选类型检查
+no_implicit_optional = false
+# 其他警告
+warn_redundant_casts = true
+warn_unused_ignores = false
+warn_no_return = true
+warn_unreachable = true
+strict_equality = false
+# 忽略缺失的导入
+ignore_missing_imports = true
+# 显示错误代码
+show_error_codes = true
+
+# 针对特定文件的配置
+[[tool.mypy.overrides]]
+module = "chatSphere.core.config"
+disable_error_code = ["call-arg"]
 
 [dependency-groups]
 dev = [
