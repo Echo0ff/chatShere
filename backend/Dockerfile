@@ -31,14 +31,14 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 RUN curl -LsSf https://astral.sh/uv/install.sh | sh
 ENV PATH="/root/.cargo/bin:$PATH"
 
-# 复制依赖文件
-COPY pyproject.toml uv.lock ./
+# 复制依赖文件和 README（构建包时需要）
+COPY pyproject.toml uv.lock README.md ./
 
 # 开发环境阶段
 FROM base AS development
 
 # 确保 uv 在 PATH 中
-ENV PATH="/root/.cargo/bin:$PATH"
+ENV PATH="/root/.local/bin:$PATH"
 
 # 安装开发依赖（使用缓存优化）
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -57,7 +57,7 @@ CMD ["uv", "run", "uvicorn", "src.chatSphere.main:app", "--host", "0.0.0.0", "--
 FROM base AS testing
 
 # 确保 uv 在 PATH 中
-ENV PATH="/root/.cargo/bin:$PATH"
+ENV PATH="/root/.local/bin:$PATH"
 
 # 安装所有依赖（包括测试依赖）- 使用缓存
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -79,7 +79,7 @@ CMD ["uv", "run", "uvicorn", "src.chatSphere.main:app", "--host", "0.0.0.0", "--
 FROM base AS production
 
 # 确保 uv 在 PATH 中
-ENV PATH="/root/.cargo/bin:$PATH"
+ENV PATH="/root/.local/bin:$PATH"
 
 # 只安装生产依赖 - 使用缓存
 RUN --mount=type=cache,target=/root/.cache/uv \
