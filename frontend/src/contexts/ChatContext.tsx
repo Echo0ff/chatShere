@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useReducer, useEffect, useRef, useCallback } from 'react';
+import { createContext, useContext, useReducer, useEffect, useRef, useCallback } from 'react';
 import type { ReactNode } from 'react';
 import type { Message, Conversation, Room, User } from '../services/api';
 import type { WebSocketMessage } from '../services/websocket';

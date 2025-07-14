@@ -1,4 +1,4 @@
-import type { Message, User } from './api';
+// import type { Message, User } from './api'; // 暂时未直接使用
 
 // WebSocket消息类型
 export interface WebSocketMessage {
@@ -28,7 +28,7 @@ class WebSocketService {
   private heartbeatTimeout: number | null = null;
   private connectionTimeout: number | null = null;
   private isConnecting = false;
-  private lastPongTime = 0;
+  // private lastPongTime = 0; // 暂时未使用
 
   constructor() {
     // 不在构造函数中自动连接，等待手动调用
@@ -90,7 +90,7 @@ class WebSocketService {
 
           // 处理心跳响应
           if (message.type === 'pong') {
-            this.lastPongTime = Date.now();
+            // this.lastPongTime = Date.now(); // 暂时未使用
             this.resetHeartbeatTimeout();
             return;
           }
@@ -157,7 +157,7 @@ class WebSocketService {
   // 开始心跳包
   private startHeartbeat(): void {
     this.stopHeartbeat(); // 确保之前的心跳已停止
-    this.lastPongTime = Date.now();
+    // this.lastPongTime = Date.now(); // 暂时未使用
 
     // 每30秒发送一次心跳
     this.heartbeatInterval = window.setInterval(() => {

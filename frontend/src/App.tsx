@@ -1,4 +1,4 @@
-import React from 'react';
+// import React from 'react'; // React 19 不需要显式导入
 import { BrowserRouter as Router, Routes, Route, Navigate } from 'react-router-dom';
 import { Provider } from './components/ui/provider';
 import { AuthProvider } from './contexts/AuthContext';

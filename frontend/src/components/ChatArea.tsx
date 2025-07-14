@@ -17,7 +17,7 @@ interface MessageItemProps {
   currentUser: any;
 }
 
-function MessageItem({ message, isOwn, currentUser }: MessageItemProps) {
+function MessageItem({ message, isOwn }: MessageItemProps) {
   const formattedTime = new Date(message.created_at).toLocaleTimeString('zh-CN', {
     hour: '2-digit',
     minute: '2-digit'
@@ -56,12 +56,12 @@ export function ChatArea() {
   const [inputMessage, setInputMessage] = useState('');
   const [isTyping, setIsTyping] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
-  const typingTimeoutRef = useRef<number>();
+  const typingTimeoutRef = useRef<number | undefined>(undefined);
 
   // 自动滚动到底部
   const scrollToBottom = () => {
     if (messagesEndRef.current) {
-      messagesEndRef.current.scrollIntoView();
+      messagesEndRef.current.scrollIntoView({ behavior: 'smooth' });
     }
   };
 

@@ -1,4 +1,4 @@
-import { useState, useContext } from 'react';
+import { useState } from 'react';
 import { Navigate, Link as RouterLink } from 'react-router-dom';
 import {
   Box,
@@ -12,7 +12,7 @@ import {
   Text,
   VStack,
   Alert,
-  Link,
+  // Link, // 未使用，使用 RouterLink 代替
 } from '@chakra-ui/react';
 import { useAuth } from '../contexts/AuthContext';
 
