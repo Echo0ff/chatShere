@@ -251,7 +251,6 @@ jobs:
               image: ${{ secrets.DOCKER_USERNAME }}/chatsphere-backend:latest
               container_name: chatsphere-backend-prod
               user: root
-              command: ["uv", "run", "uvicorn", "src.chatSphere.main:app", "--host", "0.0.0.0", "--port", "8000"]
               environment:
                 - DATABASE_URL=postgresql://chatsphere:${{ secrets.POSTGRES_PASSWORD }}@postgres:5432/chatsphere_prod
                 - REDIS_URL=redis://:${{ secrets.REDIS_PASSWORD }}@redis:6379/0
