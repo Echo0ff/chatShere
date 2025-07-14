@@ -41,8 +41,6 @@ jobs:
     - name: 后端代码检查
       working-directory: ./backend
       run: |
-        # uv run black --check .
-        # uv run isort --check-only .
         uv run mypy src/
 
     - name: 后端测试
