@@ -165,7 +165,7 @@ backend/
   "type": "send_message",
   "data": {
     "content": "消息内容",
-    "chat_type": "room|private|group", 
+    "chat_type": "room|private|group",
     "chat_id": "房间ID或用户ID",
     "message_type": "text|image",
     "reply_to_id": "回复消息ID（可选）"
@@ -284,14 +284,14 @@ upstream chatsphere_backend {
 server {
     listen 80;
     server_name api.chatsphere.com;
-    
+
     location / {
         proxy_pass http://chatsphere_backend;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
     }
-    
+
     location /ws {
         proxy_pass http://chatsphere_backend;
         proxy_http_version 1.1;
@@ -353,4 +353,4 @@ MIT License - 详见 [LICENSE](./LICENSE) 文件
 
 ---
 
-**ChatSphere Backend v2.0.0** - 构建现代化实时聊天体验 🚀 
+**ChatSphere Backend v2.0.0** - 构建现代化实时聊天体验 🚀

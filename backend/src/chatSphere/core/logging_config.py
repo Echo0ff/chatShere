@@ -2,7 +2,7 @@ import logging.config
 import os  # 导入 os 模块
 from typing import Dict
 
-from .config import settings 
+from .config import settings
 
 LOG_COLORS = {
     "DEBUG": "cyan",
@@ -17,6 +17,7 @@ COLORED_LOG_FORMAT = "%(log_color)s[%(asctime)s] [%(name)s] [%(levelname)s] - %(
 # 普通文件日志格式
 FILE_LOG_FORMAT = "[%(asctime)s] [%(name)s] [%(levelname)s] - %(message)s"
 
+
 def get_logging_config() -> Dict:
     """
     获取日志配置字典。
@@ -29,7 +30,7 @@ def get_logging_config() -> Dict:
         "disable_existing_loggers": False,
         "formatters": {
             "colored": {
-                "()": "colorlog.ColoredFormatter", # 使用 colorlog 的格式化器
+                "()": "colorlog.ColoredFormatter",  # 使用 colorlog 的格式化器
                 "format": COLORED_LOG_FORMAT,
                 "log_colors": LOG_COLORS,
             },
@@ -42,13 +43,13 @@ def get_logging_config() -> Dict:
                 "class": "logging.StreamHandler",
                 "formatter": "colored",
                 "level": LOG_LEVEL,
-                "stream": "ext://sys.stdout", # 输出到标准输出
+                "stream": "ext://sys.stdout",  # 输出到标准输出
             },
             "file": {
-                "class": "logging.handlers.RotatingFileHandler", # 使用滚动文件处理器
+                "class": "logging.handlers.RotatingFileHandler",  # 使用滚动文件处理器
                 "formatter": "standard",
                 "level": LOG_LEVEL,
-                "filename": "logs/chatsphere.log", # 日志文件路径
+                "filename": "logs/chatsphere.log",  # 日志文件路径
                 "maxBytes": 10 * 1024 * 1024,  # 每个文件最大 10 MB
                 "backupCount": 5,  # 保留最近的 5 个备份文件
                 "encoding": "utf-8",
@@ -63,8 +64,8 @@ def get_logging_config() -> Dict:
             # Uvicorn 日志记录器: 统一它们的格式
             "uvicorn": {
                 "handlers": ["console", "file"],
-                "level": "INFO", # Uvicorn 日志可以保持 INFO
-                "propagate": False, # 防止日志向 root logger 传播，避免重复记录
+                "level": "INFO",  # Uvicorn 日志可以保持 INFO
+                "propagate": False,  # 防止日志向 root logger 传播，避免重复记录
             },
             "uvicorn.error": {
                 "handlers": ["console", "file"],
@@ -78,6 +79,7 @@ def get_logging_config() -> Dict:
             },
         },
     }
+
 
 def setup_logging():
     """

@@ -38,7 +38,7 @@ show_help() {
 check_env_file() {
     local env=$1
     local env_file=".env.${env}"
-    
+
     if [ ! -f "$env_file" ]; then
         print_message $RED "错误: 环境文件 $env_file 不存在"
         exit 1
@@ -58,19 +58,19 @@ backup_current_env() {
 switch_environment() {
     local env=$1
     local env_file=".env.${env}"
-    
+
     print_message $BLUE "切换到 ${env} 环境..."
-    
+
     # 检查环境文件
     check_env_file $env
-    
+
     # 备份当前环境
     backup_current_env
-    
+
     # 复制新环境文件
     cp "$env_file" ".env"
     print_message $GREEN "✓ 已切换到 ${env} 环境"
-    
+
     # 显示当前环境信息
     show_current_env
 }
@@ -82,7 +82,7 @@ show_current_env() {
         local debug=$(grep "^DEBUG=" .env | cut -d'=' -f2)
         local db_host=$(grep "^POSTGRES_HOST=" .env | cut -d'=' -f2)
         local redis_host=$(grep "^REDIS_HOST=" .env | cut -d'=' -f2)
-        
+
         echo ""
         print_message $BLUE "当前环境信息:"
         echo "  环境: $current_env"
@@ -97,9 +97,9 @@ show_current_env() {
 # 验证环境设置
 validate_environment() {
     local env=$1
-    
+
     print_message $BLUE "验证 ${env} 环境设置..."
-    
+
     case $env in
         "production")
             # 检查生产环境关键配置
@@ -116,30 +116,30 @@ validate_environment() {
             fi
             ;;
     esac
-    
+
     print_message $GREEN "✓ 环境验证完成"
 }
 
 # 重启服务
 restart_services() {
     local env=$1
-    
+
     print_message $BLUE "重启服务以应用新环境..."
-    
+
     # 停止现有服务
     if [ "$env" = "production" ]; then
         docker-compose -f docker-compose.prod.yml down 2>/dev/null || true
     else
         docker-compose down 2>/dev/null || true
     fi
-    
+
     # 启动服务
     if [ "$env" = "production" ]; then
         docker-compose -f docker-compose.prod.yml up -d
     else
         docker-compose up -d postgres redis
     fi
-    
+
     print_message $GREEN "✓ 服务已重启"
 }
 
@@ -150,9 +150,9 @@ main() {
         show_help
         exit 1
     fi
-    
+
     local environment=$1
-    
+
     # 验证环境名称
     case $environment in
         "development"|"testing"|"production")
@@ -163,19 +163,19 @@ main() {
             exit 1
             ;;
     esac
-    
+
     # 切换环境
     switch_environment $environment
-    
+
     # 验证环境设置
     validate_environment $environment
-    
+
     # 询问是否重启服务
     read -p "是否重启服务以应用新环境? (y/N): " -r
     if [[ $REPLY =~ ^[Yy]$ ]]; then
         restart_services $environment
     fi
-    
+
     echo ""
     print_message $GREEN "环境切换完成! 🎉"
     print_message $BLUE "提示: 如果是首次切换到此环境，请运行数据库初始化："
@@ -185,4 +185,4 @@ main() {
 # 如果直接运行此脚本
 if [ "${BASH_SOURCE[0]}" = "${0}" ]; then
     main "$@"
-fi 
+fi

@@ -138,7 +138,7 @@ git push origin main
    ```bash
    # 编辑预发布环境配置
    nano backend/.env.staging
-   
+
    # 重要：修改以下配置
    SECRET_KEY=staging-strong-secret-key-change-this
    POSTGRES_PASSWORD=staging-db-password-2024
@@ -245,7 +245,7 @@ docker-compose -f docker-compose.staging.yml up -d
    ```bash
    # 检查容器状态
    docker ps -a
-   
+
    # 查看错误日志
    docker-compose -f docker-compose.staging.yml logs
    ```
@@ -254,7 +254,7 @@ docker-compose -f docker-compose.staging.yml up -d
    ```bash
    # 检查数据库服务
    docker-compose -f docker-compose.staging.yml exec postgres pg_isready
-   
+
    # 检查网络连接
    docker network ls
    ```
@@ -263,7 +263,7 @@ docker-compose -f docker-compose.staging.yml up -d
    ```bash
    # 查看端口占用
    netstat -tulpn | grep :80
-   
+
    # 停止冲突服务
    systemctl stop apache2  # 如果有其他web服务
    ```
@@ -401,4 +401,4 @@ chatsphere restart
 - 自动化部署新功能
 - 监控应用性能
 - 管理服务状态
-- 备份重要数据 
+- 备份重要数据

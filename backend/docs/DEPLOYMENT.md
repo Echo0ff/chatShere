@@ -59,7 +59,7 @@ python scripts/deploy.py production --action backup
    ```bash
    # 复制环境配置
    cp .env.development .env
-   
+
    # 或使用脚本
    ./scripts/switch_env.sh development
    ```
@@ -120,7 +120,7 @@ python scripts/deploy.py production --action backup
    ```bash
    # 复制生产环境配置
    cp .env.production .env
-   
+
    # 编辑生产环境配置
    nano .env
    ```
@@ -131,10 +131,10 @@ python scripts/deploy.py production --action backup
    SECRET_KEY=your-super-strong-secret-key-at-least-32-characters
    POSTGRES_PASSWORD=your-strong-production-password
    REDIS_PASSWORD=your-redis-password
-   
+
    # 域名配置
    ALLOWED_ORIGINS=["https://yourdomain.com"]
-   
+
    # OAuth2配置 (可选)
    GOOGLE_CLIENT_ID=your-google-client-id
    GOOGLE_CLIENT_SECRET=your-google-client-secret
@@ -144,7 +144,7 @@ python scripts/deploy.py production --action backup
    ```bash
    # 创建SSL目录
    mkdir -p ssl
-   
+
    # 复制你的SSL证书
    cp /path/to/your/cert.pem ssl/
    cp /path/to/your/key.pem ssl/
@@ -160,7 +160,7 @@ python scripts/deploy.py production --action backup
    ```bash
    # 自动化部署
    python scripts/deploy.py production
-   
+
    # 或手动部署
    docker-compose -f docker-compose.prod.yml build
    docker-compose -f docker-compose.prod.yml up -d
@@ -170,10 +170,10 @@ python scripts/deploy.py production --action backup
    ```bash
    # 检查服务状态
    docker-compose -f docker-compose.prod.yml ps
-   
+
    # 查看日志
    docker-compose -f docker-compose.prod.yml logs -f chatsphere
-   
+
    # 健康检查
    curl -f https://yourdomain.com/health
    ```
@@ -295,4 +295,4 @@ Nginx配置已包含负载均衡设置，可以轻松添加更多后端实例。
 ### 数据库优化
 - 配置PostgreSQL连接池
 - 设置适当的缓存策略
-- 定期优化数据库查询 
+- 定期优化数据库查询

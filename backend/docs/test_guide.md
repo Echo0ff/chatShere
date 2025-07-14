@@ -107,10 +107,10 @@ import json
 async def test_websocket():
     token = "YOUR_ACCESS_TOKEN"
     uri = f"ws://localhost:8000/ws?token={token}"
-    
+
     async with websockets.connect(uri) as websocket:
         print("✅ WebSocket连接已建立")
-        
+
         # 发送消息
         message = {
             "type": "message",
@@ -119,7 +119,7 @@ async def test_websocket():
             "recipient_id": "user_id"
         }
         await websocket.send(json.dumps(message))
-        
+
         # 接收消息
         response = await websocket.recv()
         print("📨 收到响应:", json.loads(response))
@@ -289,4 +289,4 @@ wrk -t12 -c400 -d30s --header "Authorization: Bearer TOKEN" http://localhost:800
 4. **文件上传**: 测试图片和文件分享
 5. **OAuth2登录**: 集成Google/GitHub登录
 
-现在你可以开始全面测试你的ChatSphere系统了！🚀 
+现在你可以开始全面测试你的ChatSphere系统了！🚀

@@ -264,4 +264,4 @@ echo "1. 配置 GitHub Actions Secrets"
 echo "2. 推送代码到 GitHub 触发自动部署"
 echo "3. 或手动克隆代码进行部署"
 
-print_message $GREEN "初始化完成! 🎉" 
+print_message $GREEN "初始化完成! 🎉"

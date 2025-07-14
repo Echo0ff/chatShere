@@ -37,7 +37,7 @@ BRANCH=${2:-main}
 
 deploy_local() {
     print_message $BLUE "开始本地部署到远程服务器..."
-    
+
     # 检查 SSH 连接
     print_message $YELLOW "测试 SSH 连接..."
     if ! ssh -o ConnectTimeout=10 root@$SERVER_IP "echo 'SSH 连接正常'"; then
@@ -47,56 +47,56 @@ deploy_local() {
         echo "3. 服务器是否允许 root 登录"
         exit 1
     fi
-    
+
     # 打包本地代码
     print_message $YELLOW "打包本地代码..."
     tar -czf chatsphere.tar.gz --exclude='.git' --exclude='__pycache__' --exclude='*.pyc' --exclude='node_modules' .
-    
+
     # 上传代码到服务器
     print_message $YELLOW "上传代码到服务器..."
     scp chatsphere.tar.gz root@$SERVER_IP:/tmp/
-    
+
     # 在服务器上部署
     ssh root@$SERVER_IP << 'ENDSSH'
         set -e
-        
+
         # 创建应用目录
         mkdir -p /opt/chatsphere
         cd /opt/chatsphere
-        
+
         # 备份当前版本
         if [ -d "current" ]; then
             rm -rf backup
             mv current backup
         fi
-        
+
         # 解压新代码
         mkdir -p current
         cd current
         tar -xzf /tmp/chatsphere.tar.gz
         rm /tmp/chatsphere.tar.gz
-        
+
         # 进入后端目录
         cd backend
-        
+
         # 复制环境配置
         if [ ! -f .env.staging ]; then
             echo "错误: .env.staging 文件不存在"
             exit 1
         fi
         cp .env.staging .env
-        
+
         # 停止旧服务
         docker-compose -f docker-compose.staging.yml down 2>/dev/null || true
-        
+
         # 构建并启动服务
         docker-compose -f docker-compose.staging.yml build
         docker-compose -f docker-compose.staging.yml up -d
-        
+
         # 等待服务启动
         echo "等待服务启动..."
         sleep 30
-        
+
         # 健康检查
         if curl -f http://localhost/health; then
             echo "✓ 部署成功!"
@@ -107,29 +107,29 @@ deploy_local() {
             exit 1
         fi
 ENDSSH
-    
+
     # 清理本地临时文件
     rm chatsphere.tar.gz
-    
+
     print_message $GREEN "本地部署完成!"
 }
 
 deploy_remote() {
     print_message $BLUE "在远程服务器上直接部署..."
-    
+
     ssh root@$SERVER_IP << ENDSSH
         set -e
-        
+
         # 创建应用目录
         mkdir -p /opt/chatsphere
         cd /opt/chatsphere
-        
+
         # 备份当前版本
         if [ -d "current" ]; then
             rm -rf backup
             mv current backup
         fi
-        
+
         # 克隆或更新代码
         if [ ! -d "current" ]; then
             git clone -b $BRANCH $REPO_URL current
@@ -140,36 +140,36 @@ deploy_remote() {
             git reset --hard origin/$BRANCH
             cd ..
         fi
-        
+
         cd current/backend
-        
+
         # 检查环境配置
         if [ ! -f .env.staging ]; then
             echo "错误: .env.staging 文件不存在"
             echo "请先创建并配置 .env.staging 文件"
             exit 1
         fi
-        
+
         # 复制环境配置
         cp .env.staging .env
-        
+
         # 停止旧服务
         docker-compose -f docker-compose.staging.yml down 2>/dev/null || true
-        
+
         # 清理旧镜像
         docker system prune -f
-        
+
         # 构建并启动服务
         docker-compose -f docker-compose.staging.yml build
         docker-compose -f docker-compose.staging.yml up -d
-        
+
         # 等待服务启动
         echo "等待服务启动..."
         sleep 30
-        
+
         # 运行数据库迁移
         docker-compose -f docker-compose.staging.yml exec -T chatsphere python scripts/setup.py || true
-        
+
         # 健康检查
         if curl -f http://localhost/health; then
             echo "✓ 部署成功!"
@@ -182,7 +182,7 @@ deploy_remote() {
             exit 1
         fi
 ENDSSH
-    
+
     print_message $GREEN "远程部署完成!"
 }
 
@@ -211,4 +211,4 @@ case $MODE in
 esac
 
 print_message $GREEN "部署完成! 🎉"
-print_message $BLUE "访问地址: http://$SERVER_IP" 
+print_message $BLUE "访问地址: http://$SERVER_IP"
