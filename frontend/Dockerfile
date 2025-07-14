@@ -7,17 +7,14 @@ FROM node:18-alpine AS base
 # 设置工作目录
 WORKDIR /app
 
-# 安装 pnpm (更快的包管理器)
-RUN npm install -g pnpm
-
 # 复制依赖文件
 COPY package*.json ./
 
 # 开发环境阶段
 FROM base AS development
 
-# 清理缓存并安装所有依赖
-RUN pnpm store prune && pnpm install --no-frozen-lockfile
+# 安装所有依赖
+RUN npm install
 
 # 复制源代码
 COPY . .
@@ -26,19 +23,19 @@ COPY . .
 EXPOSE 5173
 
 # 开发环境启动命令
-CMD ["pnpm", "run", "dev", "--host", "0.0.0.0"]
+CMD ["npm", "run", "dev", "--", "--host", "0.0.0.0"]
 
 # 构建阶段
 FROM base AS builder
 
-# 清理缓存并安装依赖
-RUN pnpm store prune && pnpm install --no-frozen-lockfile
+# 安装依赖
+RUN npm install
 
 # 复制源代码
 COPY . .
 
 # 构建应用
-RUN pnpm run build
+RUN npm run build
 
 # 测试环境阶段 - 使用 Nginx 服务静态文件
 FROM nginx:alpine AS testing

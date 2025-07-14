@@ -11,7 +11,8 @@ ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \
     PIP_NO_CACHE_DIR=1 \
     PIP_DISABLE_PIP_VERSION_CHECK=1 \
-    DEBIAN_FRONTEND=noninteractive
+    DEBIAN_FRONTEND=noninteractive \
+    PATH="/root/.cargo/bin:$PATH"
 
 # 1. 【修复】跳过APT源更换，避免复杂的文件操作
 # 直接使用官方源，虽然可能慢一些，但更稳定

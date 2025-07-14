@@ -37,6 +37,9 @@ COPY pyproject.toml uv.lock ./
 # 开发环境阶段
 FROM base AS development
 
+# 确保 uv 在 PATH 中
+ENV PATH="/root/.cargo/bin:$PATH"
+
 # 安装开发依赖（使用缓存优化）
 RUN --mount=type=cache,target=/root/.cache/uv \
     uv sync --dev
@@ -52,6 +55,9 @@ CMD ["uv", "run", "uvicorn", "src.chatSphere.main:app", "--host", "0.0.0.0", "--
 
 # 测试环境阶段
 FROM base AS testing
+
+# 确保 uv 在 PATH 中
+ENV PATH="/root/.cargo/bin:$PATH"
 
 # 安装所有依赖（包括测试依赖）- 使用缓存
 RUN --mount=type=cache,target=/root/.cache/uv \
@@ -71,6 +77,9 @@ CMD ["uv", "run", "uvicorn", "src.chatSphere.main:app", "--host", "0.0.0.0", "--
 
 # 生产环境阶段
 FROM base AS production
+
+# 确保 uv 在 PATH 中
+ENV PATH="/root/.cargo/bin:$PATH"
 
 # 只安装生产依赖 - 使用缓存
 RUN --mount=type=cache,target=/root/.cache/uv \
