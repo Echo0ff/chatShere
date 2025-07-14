@@ -59,12 +59,10 @@ jobs:
       uses: actions/setup-node@v4
       with:
         node-version: '18'
-        cache: 'npm'
-        cache-dependency-path: frontend/package-lock.json
 
     - name: 安装前端依赖
       working-directory: ./frontend
-      run: npm ci
+      run: npm install
 
     - name: 验证前端环境
       working-directory: ./frontend
@@ -79,7 +77,11 @@ jobs:
 
     - name: 前端构建测试
       working-directory: ./frontend
-      run: npm run build
+      run: |
+        echo "开始前端构建..."
+        npm run build
+        echo "前端构建完成！"
+        ls -la dist/
 
   # 构建 Docker 镜像
   build-images:
