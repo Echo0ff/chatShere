@@ -13,6 +13,7 @@ env:
   REGISTRY: docker.io
   BACKEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/chatsphere-backend
   FRONTEND_IMAGE: ${{ secrets.DOCKER_USERNAME }}/chatsphere-frontend
+  SERVER_IP: 49.232.202.209
 
 jobs:
   # 代码质量检查
@@ -130,14 +131,14 @@ jobs:
     - name: 部署到测试服务器
       uses: appleboy/ssh-action@v0.1.7
       with:
-        host: ${{ secrets.TEST_SERVER_HOST }}
-        username: ${{ secrets.TEST_SERVER_USERNAME }}
-        key: ${{ secrets.TEST_SERVER_SSH_KEY }}
+        host: ${{ env.SERVER_IP }}
+        username: ${{ secrets.SERVER_USERNAME }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
         script: |
           cd /opt/chatsphere
 
           # 备份当前配置
-          cp docker-compose.test.yml docker-compose.test.yml.backup
+          cp docker-compose.test.yml docker-compose.test.yml.backup || echo "No file to backup"
 
           # 拉取最新代码
           git pull origin develop
@@ -146,7 +147,7 @@ jobs:
           docker-compose -f docker-compose.test.yml pull
 
           # 重启服务
-          docker-compose -f docker-compose.test.yml down
+          docker-compose -f docker-compose.test.yml down || true
           docker-compose -f docker-compose.test.yml up -d
 
           # 等待服务启动
@@ -155,7 +156,7 @@ jobs:
           # 健康检查
           curl -f http://localhost/health || exit 1
 
-          echo "✅ 测试环境部署成功!"
+          echo "✅ 测试环境部署成功! 访问地址: http://${{ env.SERVER_IP }}"
 
   # 部署到生产环境
   deploy-production:
@@ -172,14 +173,14 @@ jobs:
     - name: 部署到生产服务器
       uses: appleboy/ssh-action@v0.1.7
       with:
-        host: ${{ secrets.PROD_SERVER_HOST }}
-        username: ${{ secrets.PROD_SERVER_USERNAME }}
-        key: ${{ secrets.PROD_SERVER_SSH_KEY }}
+        host: ${{ env.SERVER_IP }}
+        username: ${{ secrets.SERVER_USERNAME }}
+        key: ${{ secrets.SERVER_SSH_KEY }}
         script: |
           cd /opt/chatsphere
 
           # 备份当前配置
-          cp docker-compose.prod.yml docker-compose.prod.yml.backup
+          cp docker-compose.prod.yml docker-compose.prod.yml.backup || echo "No file to backup"
 
           # 拉取最新代码
           git pull origin main
@@ -199,12 +200,12 @@ jobs:
           sleep 10
 
           # 最终健康检查
-          curl -f https://yourdomain.com/health || exit 1
+          curl -f http://${{ env.SERVER_IP }}/health || exit 1
 
           # 清理旧镜像
           docker image prune -f
 
-          echo "✅ 生产环境部署成功!"
+          echo "✅ 生产环境部署成功! 访问地址: http://${{ env.SERVER_IP }}"
 
   # 部署后通知
   notify:
@@ -221,9 +222,12 @@ jobs:
         channel: '#deployments'
         text: |
           ChatSphere 部署状态: ${{ job.status }}
+          环境: ${{ github.ref == 'refs/heads/main' && '生产环境' || '测试环境' }}
+          服务器: ${{ env.SERVER_IP }}
           分支: ${{ github.ref }}
           提交: ${{ github.sha }}
           作者: ${{ github.actor }}
+          访问地址: http://${{ env.SERVER_IP }}
       env:
         SLACK_WEBHOOK_URL: ${{ secrets.SLACK_WEBHOOK_URL }}
       if: env.SLACK_WEBHOOK_URL != ''
