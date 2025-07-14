@@ -55,3 +55,9 @@ target-version = ["py311"]
 [tool.isort]
 profile = "black"
 line_length = 100
+
+[dependency-groups]
+dev = [
+    "black>=25.1.0",
+    "isort>=6.0.1",
+]
