@@ -28,8 +28,10 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     && rm -rf /var/tmp/*
 
 # 安装 uv (更快的 Python 包管理器) - 使用官方安装脚本更快
-RUN curl -LsSf https://astral.sh/uv/install.sh | sh
-ENV PATH="/root/.cargo/bin:$PATH"
+RUN curl -LsSf https://astral.sh/uv/install.sh | sh && \
+    echo 'export PATH="/root/.local/bin:$PATH"' >> /root/.bashrc && \
+    /root/.local/bin/uv --version
+ENV PATH="/root/.local/bin:$PATH"
 
 # 复制依赖文件和 README（构建包时需要）
 COPY pyproject.toml uv.lock README.md ./
@@ -37,12 +39,9 @@ COPY pyproject.toml uv.lock README.md ./
 # 开发环境阶段
 FROM base AS development
 
-# 确保 uv 在 PATH 中
-ENV PATH="/root/.local/bin:$PATH"
-
 # 安装开发依赖（使用缓存优化）
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --dev
+    /root/.local/bin/uv sync --dev
 
 # 复制源代码
 COPY . .
@@ -51,39 +50,33 @@ COPY . .
 EXPOSE 8000
 
 # 开发环境启动命令
-CMD ["uv", "run", "uvicorn", "src.chatSphere.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
+CMD ["/root/.local/bin/uv", "run", "uvicorn", "src.chatSphere.main:app", "--host", "0.0.0.0", "--port", "8000", "--reload"]
 
 # 测试环境阶段
 FROM base AS testing
 
-# 确保 uv 在 PATH 中
-ENV PATH="/root/.local/bin:$PATH"
-
 # 安装所有依赖（包括测试依赖）- 使用缓存
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --dev
+    /root/.local/bin/uv sync --dev
 
 # 复制源代码
 COPY . .
 
 # 运行测试
-RUN uv run pytest tests/ -v
+RUN /root/.local/bin/uv run pytest tests/ -v
 
 # 暴露端口
 EXPOSE 8000
 
 # 测试环境启动命令
-CMD ["uv", "run", "uvicorn", "src.chatSphere.main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/root/.local/bin/uv", "run", "uvicorn", "src.chatSphere.main:app", "--host", "0.0.0.0", "--port", "8000"]
 
 # 生产环境阶段
 FROM base AS production
 
-# 确保 uv 在 PATH 中
-ENV PATH="/root/.local/bin:$PATH"
-
 # 只安装生产依赖 - 使用缓存
 RUN --mount=type=cache,target=/root/.cache/uv \
-    uv sync --no-dev
+    /root/.local/bin/uv sync --no-dev
 
 # 创建非root用户并设置 home 目录
 RUN groupadd -r appuser && useradd -r -g appuser -m -d /home/appuser appuser
@@ -106,4 +99,4 @@ HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
     CMD curl -f http://localhost:8000/health || exit 1
 
 # 生产环境启动命令
-CMD ["uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]
+CMD ["/root/.local/bin/uv", "run", "uvicorn", "main:app", "--host", "0.0.0.0", "--port", "8000"]

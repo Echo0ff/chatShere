@@ -62,7 +62,7 @@ class WebSocketService {
     this.cleanupConnection();
 
     try {
-      const wsUrl = `ws://localhost:8000/ws?token=${token}`;
+      const wsUrl = `${import.meta.env.VITE_WS_URL || 'ws://localhost:8000'}/ws?token=${token}`;
       console.log('尝试连接WebSocket:', wsUrl);
       this.ws = new WebSocket(wsUrl);
 

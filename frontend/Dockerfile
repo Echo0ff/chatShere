@@ -34,6 +34,14 @@ RUN npm install
 # 复制源代码
 COPY . .
 
+# 设置构建时环境变量
+ARG VITE_API_URL=http://49.232.202.209:8999/api
+ARG VITE_WS_URL=ws://49.232.202.209:8999/ws
+ARG VITE_APP_NAME=ChatSphere
+ARG VITE_APP_VERSION=2.0.0
+ARG VITE_ENVIRONMENT=production
+ARG VITE_DEBUG=false
+
 # 构建应用
 RUN npm run build
 

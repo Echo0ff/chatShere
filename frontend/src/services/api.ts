@@ -1,8 +1,8 @@
 import axios from 'axios';
 import type { AxiosInstance, AxiosResponse } from 'axios';
 
-// API基础配置
-const API_BASE_URL = 'http://localhost:8000/api/v1';
+// API基础配置 - 使用环境变量
+const API_BASE_URL = `${import.meta.env.VITE_API_URL || 'http://localhost:8000'}/api/v1`;
 
 // 定义接口类型
 export interface User {
